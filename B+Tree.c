@@ -26,6 +26,16 @@ about B+tree
 typedef int index_type;
 typedef int* addr_type;
 
+
+int findInterval(index_type* index, int size){
+	int lo=-1,hi=size,mid;
+	while(hi-lo>=2){
+		mid=lo+(hi-lo)/2;
+		if(index[mid]<=idx)lo=mid;
+		else hi=mid;
+	}
+	return lo;
+}
 //maybe round array?
 typedef struct IndexPage{
 	int size;
@@ -124,12 +134,7 @@ int changeIndex(index_page index, index_type init, index_type new){
 int insertToleaf(leaf_page l, index_type idx, addr_type addr){
 	if(l->size>=M)return 0;
 	int i;
-	int lo=-1,hi=l->size,mid;
-	while(hi-lo>=2){
-		mid=lo+(hi-lo)/2;
-		if(l->idx[mid]<=idx)lo=mid;
-		else hi=mid;
-	}
+	int lo=findInterval(l->key,i->size);
 	if(lo==-1&&!changeIndex(l->father,l->key[0],idx))Error(Fail to change upper index!);
 	For(i,l->size,hi){
 		l->key[i]=l->key[i-1];
@@ -145,12 +150,7 @@ int insertToleaf_withBuffer(leaf_page l, index_type idx, addr_type addr){
 	if(l->size!=M)return 0;
 	int i;
 	//l->size=M
-	int lo=-1,hi=l->size,mid;
-	while(hi-lo>=2){
-		mid=lo+(hi-lo)/2;
-		if(l->idx[mid]<=idx)lo=mid;
-		else hi=mid;
-	}
+	int lo=findInterval(l->key,i->size);
 	if(lo==-1&&!changeIndex(l->father,l->key[0],idx))Error(Fail to change upper index!);
 	For(i,l->size,hi){
 		l->key[i]=l->key[i-1];
@@ -163,8 +163,20 @@ int insertToleaf_withBuffer(leaf_page l, index_type idx, addr_type addr){
 	return 1;
 }
 
-int insertToIndex_withBuffer(index_page index,index_type idx, addr_type addr){
+int insertToIndex_withBuffer(index_page index, int p, index_type new){
+	int i;
+	For(i,index->size,p){
+		index->key[i]=index->key[i-1];
+	}
+	index->key[p]=new;
+	return 1;
+}
 
+//deserted
+int replacePointer(index_page index, int p, leaf_page new){
+	if(index->size<p)return 0;
+	index->pointer[p]=new;
+	return 1;
 }
 
 int insertPointer_withBuffer(index_page index,int p,leaf_page new){//insert to idx(p)
@@ -176,6 +188,18 @@ int insertPointer_withBuffer(index_page index,int p,leaf_page new){//insert to i
 	return 1;
 }
 
+leaf_page newLeafPage_loaded(leaf_page l, int init, int size){
+	leaf_page new=newLeafPage();
+	For(i,init,init+size){
+		new->key[i-init]=l->key[i];
+		new->addr[i-init]=l->addr[i];
+	}
+	new->size=size;
+	//
+	new->father=l->father;
+	return new;
+}
+
 int splitLeaf(leaf_page l){//related to father
 	if(l->size<=M)return 0;
 	if(l->father->size>=M+1)return 0;
@@ -183,9 +207,35 @@ int splitLeaf(leaf_page l){//related to father
 	int i,pivot;
 	For(i,0,l->father->size)if(l->father->key[i]==l->key[0])break;
 	if(i==l->father->size)return 0;
-	l->father->pointer[pivot+1]=newLeafPage_loaded();
-	insertPointer_withBuffer(l->father,pivot+1,newLeafPage_loaded());
-	insertToIndex();
+	//determine the new index to insert
+	index_type newIdx=l->key[(M+1)/2];
+	int size1=(M+1)/2;
+	int size2=(M+1-(M+1)/2+1);
+	//insert pointers to pivot+1 and pivot+2
+	//right part to replace
+	leaf_page right=newLeafPage_loaded(l,0,size1)
+	l->father->pointer[pivot+1]=right;
+	//left part to insert
+	leaf_page left=newLeafPage_loaded(l,(M+1)/2,size2)
+	insertPointer_withBuffer(l->father,pivot+1,left);
+	//insert index to pivot+1
+	insertToIndex_withBuffer(l->father,pivot+1,newIdx);
+	//construct linkage
+	//change index
+	if(pivot==-1)changeIndex(l->father->father,l->father->key[1],l->father->key[0]);
+	//l->leaf
+	l->pre->next=left;
+	l->next->pre=right;
+	left->pre=l->pre;
+	left->next=right;
+	right->pre=left;
+	right->next=l->next;
+	
+	if(l->father->size==M+1&&!splitIndex(l->father))Error(split index error!);
+	//
+	freeLeafPage(l);
+	return 1;
+
 }
 int splitIndex(index_page index){
 
@@ -256,12 +306,7 @@ int Insert(index_tree T, index_type idx, addr_type addr){
 	index_page cur=T->root;//search init
 	For(i,0,treeHeight){
 		//idx in [lo,hi)
-		int lo=-1,hi=cur->size,mid;
-		while(hi-lo>=2){
-			mid=(hi-lo)/2+lo;
-			if(cur->key[mid]<=idx)lo=mid;
-			else hi=mid;
-		}
+		int lo=findInterval(cur->key,cur->size);
 		lo++;
 		if(cur->pointer[lo]==NULL&&i<treeHeight-1)Error(NIL index page!);
 		else if(cur->pointer[lo]==NULL)Error(NIL leaf page!);
