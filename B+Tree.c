@@ -25,12 +25,13 @@ about B+tree
 
 
 #define M 				(3)
-#define Inf 			(1e3)
+#define NIL 			(-1e3)
 typedef int index_type;
 typedef int* addr_type;
 
 
 int findInterval(index_type* index, index_type idx, int size){
+	//return [a,a+1) that contains idx
 	int lo=-1,hi=size,mid;
 	while(hi-lo>=2){
 		mid=lo+(hi-lo)/2;
@@ -63,6 +64,17 @@ typedef struct IndexTree{
 	leaf_page l_leaf;
 	int l_size;
 }* index_tree;
+
+index_tree GLOBAL_Pointer;
+
+void setCurrentTree(index_tree t){
+	GLOBAL_Pointer=t;
+	return;
+}
+
+index_tree getCurrentTree(void){
+	return GLOBAL_Pointer;
+}
 
 leaf_page newLeafPage(void){
 	Log();
@@ -128,7 +140,7 @@ index_page firstIndexPage(void){
 index_tree initialIndexTree(void){
 	Log();
 	index_tree newTree=New(struct IndexTree,1);
-	newTree->size=Inf;
+	newTree->size=NIL;
 	newTree->root=firstIndexPage();
 	newTree->root->father=newTree;
 
@@ -141,21 +153,40 @@ index_tree initialIndexTree(void){
 
 int changeIndex(index_page index, index_type init, index_type new){
 	Log();
-	if(index==NULL||index->size==Inf)return 1;
-	int i;
-	For(i,0,index->size)if(index->key[i]==init)break;
-	if(i==M)return 0;
-	else index->key[i]=new;
-	if(i==0)return changeIndex(index->father, init, new);
+	// two boundary conditions:
+	// index is empty and init is from first pointer
+	// index is empty and init is from second pointer
+	// all ruled out
+	if(index->size<=0)Error(NIL index!);
+	if(init==NIL)Error(A NIL index comming from below!);
+
+	int lo=findInterval(index->key,init,index->size);
+	if(lo==-1)return 1;
+	if(index->key[lo]==init)index->key[lo]=new;
+	else if(index->key[lo-1]==init)index->key[lo-1]=new;
+	else Error(cannot find suitable index to change);
+
+	if(index->key[0]==new)return changeIndex(index->father, init, new);
+	return 1;
+}
+
+int addIndex(index_page index, index_type new){
+	Log();
+	if(index->size>=M)Error(Index page already full!);
+	index->size++;
+	index->key[index->size-1]=new;
 	return 1;
 }
 
 int insertToleaf(leaf_page l, index_type idx, addr_type addr){
 	Log();
 	if(l->size>=M)return 0;
+	// special case for new index inserted down-to-up
+	if(l->size==0&&l->pre!=NULL)addIndex(l->father,idx);
 	int i;
 	int lo=findInterval(l->key,idx,l->size);
-	if(lo==-1&&!changeIndex(l->father,l->key[0],idx))Error(Fail to change upper index!);
+	if(lo==-1&&l->size>0&&!changeIndex(l->father,l->key[0],idx))
+		Error(Fail to change upper index!);
 	For(i,l->size,lo+1){
 		l->key[i]=l->key[i-1];
 		l->addr[i]=l->addr[i-1];
@@ -244,6 +275,15 @@ index_page newIndexPage_loaded(index_page index, int init, int size){
 
 int splitLeaf(leaf_page l){//related to father
 	Log();
+
+	/*
+	int i;
+	For(i,0,l->size)printf("%d ",l->key[i]);
+	printf("\n");
+	For(i,0,l->father->size)printf("%d ",l->father->key[i]);
+	printf("\n");
+	*/
+
 	if(l->size<=M)return 0;
 	if(l->father->size>=M+1)return 0;
 	//safe to load to father
@@ -266,14 +306,24 @@ int splitLeaf(leaf_page l){//related to father
 	//construct linkage
 	//change index
 	if(pivot==-1)changeIndex(l->father->father,l->father->key[1],l->father->key[0]);
+	
 	//l->leaf
-	l->pre->next=left;
-	l->next->pre=right;
-	left->pre=l->pre;
+	if(l->pre==NULL){
+		index_tree tree=getCurrentTree();
+		tree->l_leaf=left;
+		left->pre=NULL;
+	}
+	else {
+		l->pre->next=left;
+		left->pre=l->pre;
+	}
+	if(l->next!=NULL){
+		l->next->pre=right;
+	}	
 	left->next=right;
 	right->pre=left;
 	right->next=l->next;
-	
+
 	if(l->father->size==M+1&&!splitIndex(l->father))Error(split index error!);
 	//
 	freeLeafPage(l);
@@ -282,7 +332,7 @@ int splitLeaf(leaf_page l){//related to father
 }
 int splitIndex(index_page l){
 	if(l->size<=M)return 0;
-	if(l->father->size==Inf){
+	if(l->father->size==NIL){
 		index_tree tree = (index_tree)l->father;
 		index_page newRoot = newIndexPage();
 		tree->root=newRoot;
@@ -367,7 +417,7 @@ int recursiveInsertToLeaf(leaf_page l,index_type idx,addr_type addr){
 		}
 		cur=cur->pre;
 	}
-	if(isVacant)return leftInsertToLeaf(l,idx,addr);
+	if(isVacant)return leftInsertToLeaf(l->pre,idx,addr);
 	cur=l->next;
 	while(cur!=NULL){
 		if(cur->size<M){
@@ -376,7 +426,7 @@ int recursiveInsertToLeaf(leaf_page l,index_type idx,addr_type addr){
 		}
 		cur=cur->next;
 	}
-	if(isVacant)return rightInsertToLeaf(l,idx,addr);
+	if(isVacant)return rightInsertToLeaf(l->next,idx,addr);
 	else return 0;
 }
 
@@ -427,6 +477,7 @@ void putTree(index_tree T){
 int main(void){
 
 	index_tree MainTree=initialIndexTree();
+	setCurrentTree(MainTree);
 	//test sample
 	int sampleSize=100;
 	int data[100]={0};
