@@ -219,6 +219,7 @@ int insertToleaf_withBuffer(leaf_page l, index_type idx, addr_type addr){
 int insertToIndex_withBuffer(index_page index, int p, index_type new){
 	Log();
 	int i;
+	index->size++;
 	For(i,index->size,p){
 		index->key[i]=index->key[i-1];
 	}
@@ -277,29 +278,31 @@ index_page newIndexPage_loaded(index_page index, int init, int size){
 int splitLeaf(leaf_page l){//related to father
 	Log();
 
-	/*
 	int i;
-	For(i,0,l->size)printf("%d ",l->key[i]);
-	printf("\n");
 	For(i,0,l->father->size)printf("%d ",l->father->key[i]);
 	printf("\n");
-	*/
+	For(i,0,l->size)printf("%d ",l->key[i]);
+	printf("\n");
+		
 
 	if(l->size<=M)return 0;
 	if(l->father->size>=M+1)return 0;
 	//safe to load to father
 	int pivot;
 	For(pivot,0,l->father->size)if(l->father->key[pivot]==l->key[0])break;
+	if(l->father->size<=0)pivot=-1;
 	if(pivot==l->father->size)return 0;
 	//determine the new index to insert
 	index_type newIdx=l->key[(M+1)/2];
 	int size1=(M+1)/2;
-	int size2=(M+1-(M+1)/2+1);
+	int size2=(M+1-(M+1)/2);
 	//insert pointers to pivot+1 and pivot+2
 	//right part to replace
+	printf("right part:%d\n",size1);
 	leaf_page right=newLeafPage_loaded(l,0,size1);
 	l->father->pointer[pivot+1]=right;
 	//left part to insert
+	printf("left part:%d\n",size2);
 	leaf_page left=newLeafPage_loaded(l,(M+1)/2,size2);
 	insertPointer_withBuffer(l->father,pivot+1,left);
 	//insert index to pivot+1
@@ -325,7 +328,14 @@ int splitLeaf(leaf_page l){//related to father
 	right->pre=left;
 	right->next=l->next;
 
-	if(l->father->size==M+1&&!splitIndex(l->father))Error(split index error!);
+	if(l->father->size>=M+1&&!splitIndex(l->father))Error(split index error!);
+
+	For(i,0,l->father->size)printf("%d ",l->father->key[i]);
+	printf("\n");
+	For(i,0,left->size)printf("%d ",left->key[i]);
+	printf("\n");
+	For(i,0,right->size)printf("%d ",right->key[i]);
+	printf("\n");
 	//
 	freeLeafPage(l);
 	return 1;
@@ -345,6 +355,7 @@ int splitIndex(index_page l){
 	//safe to load to father
 	int pivot;
 	For(pivot,0,l->father->size)if(l->father->key[pivot]==l->key[0])break;
+	if(l->father->size<=0)pivot=-1;
 	if(pivot==l->father->size)return 0;
 	//determine the new index to insert
 	index_type newIdx=l->key[(M+1)/2];
