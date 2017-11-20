@@ -29,17 +29,6 @@ about B+tree
 typedef int index_type;
 typedef int* addr_type;
 
-
-int findInterval(index_type* index, index_type idx, int size){
-	//return [a,a+1) that contains idx
-	int lo=-1,hi=size,mid;
-	while(hi-lo>=2){
-		mid=lo+(hi-lo)/2;
-		if(index[mid]<=idx)lo=mid;
-		else hi=mid;
-	}
-	return lo;
-}
 //maybe round array?
 typedef struct IndexPage{
 	int size;
@@ -64,6 +53,18 @@ typedef struct IndexTree{
 	leaf_page l_leaf;
 	int l_size;
 }* index_tree;
+
+
+int findInterval(index_type* index, index_type idx, int size){
+	//return [a,a+1) that contains idx
+	int lo=-1,hi=size,mid;
+	while(hi-lo>=2){
+		mid=lo+(hi-lo)/2;
+		if(index[mid]<=idx)lo=mid;
+		else hi=mid;
+	}
+	return lo;
+}
 
 index_tree GLOBAL_Pointer;
 
