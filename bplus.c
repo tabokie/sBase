@@ -111,7 +111,7 @@ int Insert(index_tree T, index_type idx, addr_type addr){
     }
     // leaves all full
     else{//use preset buffer, forced insert
-        if(!insertToleaf_withBuffer(cur,idx,addr))Error(Fail to split leaf!);
+        if(!insertToleaf_withBuffer(cur,idx,addr))Error(Fail to forced insert!);
         else if(!splitLeaf(cur))Error(Fail to split leaf!);
         else{
             T->l_size++;
@@ -169,7 +169,8 @@ int splitLeaf(leaf_page l_un){//related to father
     Log();
     leaf_page l=(leaf_page)l_un;
     // not full leaf
-    if(l->size<=M)return 0;
+    // @NEW_FEATURE
+    if(l->size<=M)return 1;
     // overflow
     if(l->father->size>=M+1)return 0;
     // safe to load to father
@@ -222,6 +223,7 @@ int splitLeaf(leaf_page l_un){//related to father
     return 1;
 }
 
+// following insert routine DO change upper index
 int insertToleaf(leaf_page l_un, index_type idx, addr_type addr){
     Log();
     leaf_page l=(leaf_page)l_un;
@@ -233,8 +235,7 @@ int insertToleaf(leaf_page l_un, index_type idx, addr_type addr){
     int i;
     int lo=findInterval(l->key,idx,l->size);
     // change the first index, need to change upper index
-    if(lo==-1&&l->size>0&&!changeIndex(l->father,l->key[0],idx))
-        Error(Fail to change upper index!);
+    if(lo==-1&&l->size>0&&!changeIndex(l->father,l->key[0],idx))Error(Fail to change upper index!);
     if(l->key[lo]==idx&&l->addr[lo]!=addr)Error(Same index ref to different addr!);
     else if(l->key[lo]==idx)return 1;
     // insert routine
@@ -246,6 +247,7 @@ int insertToleaf(leaf_page l_un, index_type idx, addr_type addr){
     l->addr[lo+1]=addr;
     // update info
     l->size++;
+
     return 1;
 }
 
@@ -269,6 +271,31 @@ int insertToleaf_withBuffer(leaf_page l_un, index_type idx, addr_type addr){
     l->addr[lo+1]=addr;
 
     l->size++;
+    return 1;
+}
+
+int insertToleaf_withoutChangeIdx(leaf_page l_un, index_type idx, addr_type addr){
+    Log();
+    leaf_page l=(leaf_page)l_un;
+    // full
+    if(l->size>=M)return 0;
+    // special case for new index inserted down-to-up
+    if(l->size==0&&l->pre!=NULL)addIndex(l->father,idx);
+    // find pivot to insert
+    int i;
+    int lo=findInterval(l->key,idx,l->size);
+    if(l->key[lo]==idx&&l->addr[lo]!=addr)Error(Same index ref to different addr!);
+    else if(l->key[lo]==idx)return 1;
+    // insert routine
+    For(i,l->size,lo+1){
+        l->key[i]=l->key[i-1];
+        l->addr[i]=l->addr[i-1];
+    }
+    l->key[lo+1]=idx;
+    l->addr[lo+1]=addr;
+    // update info
+    l->size++;
+
     return 1;
 }
 
@@ -320,7 +347,8 @@ int leftInsertToLeaf(leaf_page l_un,index_type idx, addr_type addr){
                 l->addr[i]=l->addr[i+1];
             }
             l->size--;
-            insertToleaf(l,idx,addr);
+            
+            insertToleaf_withoutChangeIdx(l,idx,addr);
             changeIndex(l->father,firstIdx,l->key[0]);
             return leftInsertToLeaf(l->pre,firstIdx,firstAddr);
         }
@@ -419,6 +447,7 @@ int freeIndexPage(index_page index){
 int changeIndex(index_page index_un, index_type init, index_type new){
     Log();
     index_page index=(index_page)index_un;
+
     // two boundary conditions:
     // index is empty and init is from first pointer
     // index is empty and init is from second pointer
@@ -436,9 +465,7 @@ int changeIndex(index_page index_un, index_type init, index_type new){
     int lo=findInterval(index->key,init,index->size);
     // can't find index
     if(lo==-1)Error(Unexpected small index!);
-    // two conditions for index
     if(index->key[lo]==init)index->key[lo]=new;
-    else if(index->key[lo+1]==init)index->key[lo+1]=new;
     else Error(cannot find suitable index to change);
     // check if needed to continue changing
     if(index->key[0]==new)return changeIndex(index->father, init, new);

@@ -18,7 +18,7 @@
 #endif
 
 #ifndef For
-#define For(i,a,b)                  for(i=a;(a<=b)?(b-i):(i-b)>0;i+=(a<=b)?1:-1)
+#define For(i,a,b)                  for(i=(a);(((a)<=(b))?((b)-(i)):((i)-(b)))>0;i+=(((a)<=(b))?1:-1))
 #endif
 
 #ifndef Log
