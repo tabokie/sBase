@@ -10,11 +10,11 @@
 #endif
 
 #ifndef Initial
-#define Initial(array,val,size)     ({int i;for(i=0;i<size;i++)array[i]=val;})
+#define Initial(array,val,size)     ({int in_i_;for(in_i_=0;in_i_<size;in_i_++)array[in_i_]=val;}) 
 #endif
 
 #ifndef PutInts
-#define PutInts(array,size)         ({printf(#array);printf(": ");int i;for(i=0;i<size;i++)printf("%d ",array[i]);printf("\n");})
+#define PutInts(array,size)         ({printf(#array);printf(": ");int in_i_;for(in_i_=0;in_i_<size;in_i_++)printf("%d ",array[in_i_]);printf("\n");}) 
 #endif
 
 #ifndef For

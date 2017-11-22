@@ -14,6 +14,8 @@ about B+tree
 4.if leaves all full
     force insert
     split full leaf and index
+
+NOTICE: don't allow multiple ref!
 */
 
 
@@ -58,8 +60,8 @@ typedef int* addr_type;
 typedef struct IndexPage{
     int size;
     struct IndexPage* father;
-    struct IndexPage** pointer;
     index_type* key;
+    struct IndexPage** pointer;
 }* index_page;
 
 typedef struct LeafPage{
@@ -80,8 +82,8 @@ typedef struct IndexTree{
 }* index_tree;
 
 
-#define putIndexPage(page)          ({int i;printf("||");printf("[%d] ",((index_page)page)->size);For(i,0,page->size){if(((index_page)page)->key[i]<0)printf("NINF ");else printf("%d ",((index_page)page)->key[i]);}printf("|| ");})
-#define putLeafPage(page)           ({int i;printf("||");printf("[%d] ",((leaf_page)page)->size);For(i,0,((leaf_page)page)->size){if(((leaf_page)page)->key[i]<0)printf("NINF ");else printf("%d ",((leaf_page)page)->key[i]);}printf("|| ");})
+#define putIndexPage(page)          ({int in_i_;printf("(");printf("[%d] ",((index_page)page)->size);For(in_i_,0,page->size){if(((index_page)page)->key[in_i_]<0)printf("NINF ");else printf("%d ",((index_page)page)->key[in_i_]);}printf(") ");})
+#define putLeafPage(page)           ({int in_i_;printf("(");printf("[%d] ",((leaf_page)page)->size);For(in_i_,0,((leaf_page)page)->size){if(((leaf_page)page)->key[in_i_]<0)printf("NINF ");else printf("%d ",((leaf_page)page)->key[in_i_]);}printf(") ");})
 
 
 /***********************************************************
