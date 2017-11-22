@@ -1,6 +1,34 @@
 #ifndef BPLUSTREE_H_
 #define BPLUSTREE_H_
 
+/*
+about B+tree
+1.find corresponding leaf
+2.if not full
+    2.1 Insert
+3.if full and leaves not full->rotate
+    3.0 premise: maintain a size element for linked leaves
+    >recursive allowed: insertToleaf
+        3.1 from pivot to left then to right
+        3.1.1 if left...
+4.if leaves full
+    insertToIndex(median index){
+    "shell_cmd": "g++ \"${file}\" -o \"${file_path}/${file_base_name}\"",
+    "file_regex": "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$",
+    "working_dir": "${file_path}",
+    "selector": "source.c++",
+
+    "variants":
+    [
+        {
+            "name": "Run",
+            "shell_cmd": "g++ \"${file}\" -o \"${file_path}/${file_base_name}\" && \"${file_path}/${file_base_name}\""
+        }
+    ]
+}
+*/
+
+
 /*!
     \def M
     \breif Unit size preset by user.
@@ -17,6 +45,16 @@
 #define NIL             (-1e3)
 #endif
 
+
+/*
+    \def NINF
+    \brief Pre defined minimum element value.
+*/
+#ifndef NINF
+#define NINF            (-1e5)
+#endif
+
+
 /*
     \def index_type,addr_type
     \brief Storing data type for the tree.
@@ -27,21 +65,22 @@ typedef int* addr_type;
 
 /*
     \brief Basic data structure.
+    \NOTICE Special alignment: size and father
 */
 typedef struct IndexPage{
     int size;
+    struct IndexPage* father;
     struct IndexPage** pointer;
     index_type* key;
-    struct IndexPage* father;
 }* index_page;
 
 typedef struct LeafPage{
     int size;
+    index_page father;
     index_type* key;
     addr_type* addr;
     struct LeafPage* next;
     struct LeafPage* pre;
-    index_page father;
 }* leaf_page;
 
 typedef struct IndexTree{
@@ -51,6 +90,11 @@ typedef struct IndexTree{
     leaf_page l_leaf;
     int l_size;
 }* index_tree;
+
+
+#define putIndexPage(page)          ({int i;printf("||");printf("[%d] ",((index_page)page)->size);For(i,0,page->size){if(((index_page)page)->key[i]<0)printf("NINF ");else printf("%d ",((index_page)page)->key[i]);}printf("|| ");})
+#define putLeafPage(page)           ({int i;printf("||");printf("[%d] ",((leaf_page)page)->size);For(i,0,((leaf_page)page)->size){if(((leaf_page)page)->key[i]<0)printf("NINF ");else printf("%d ",((leaf_page)page)->key[i]);}printf("|| ");})
+
 
 /***********************************************************
     Tree function class

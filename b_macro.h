@@ -1,31 +1,31 @@
 #ifndef BASIC_MACRO_
 #define BASIC_MACRO_
 
-#ifndef
+#ifndef Error
 #define Error(note)                 ({printf(#note);printf("\n");exit(1);})
 #endif
 
-#ifndef
+#ifndef New
 #define New(typeName,size)          (typeName*)malloc(sizeof(typeName)*(size))
 #endif
 
-#ifndef
+#ifndef Initial
 #define Initial(array,val,size)     ({int i;for(i=0;i<size;i++)array[i]=val;})
 #endif
 
-#ifndef
+#ifndef PutInts
 #define PutInts(array,size)         ({printf(#array);printf(": ");int i;for(i=0;i<size;i++)printf("%d ",array[i]);printf("\n");})
 #endif
 
-#ifndef
+#ifndef For
 #define For(i,a,b)                  for(i=a;(a<=b)?(b-i):(i-b)>0;i+=(a<=b)?1:-1)
 #endif
 
-#ifndef
+#ifndef Log
 #define Log()                       ({printf("%s",__func__);printf("\n");})
 #endif
 
-#ifndef
+#ifndef BP
 #define BP(note)                    ({printf(#note);printf(", In function %s",__func__);printf("\n");})
 #endif
 
