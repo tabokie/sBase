@@ -7,25 +7,13 @@ about B+tree
 2.if not full
     2.1 Insert
 3.if full and leaves not full->rotate
-    3.0 premise: maintain a size element for linked leaves
+    3.0 premise: maintain a size element for linked leaves -> premise denied
     >recursive allowed: insertToleaf
         3.1 from pivot to left then to right
         3.1.1 if left...
-4.if leaves full
-    insertToIndex(median index){
-    "shell_cmd": "g++ \"${file}\" -o \"${file_path}/${file_base_name}\"",
-    "file_regex": "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$",
-    "working_dir": "${file_path}",
-    "selector": "source.c++",
-
-    "variants":
-    [
-        {
-            "name": "Run",
-            "shell_cmd": "g++ \"${file}\" -o \"${file_path}/${file_base_name}\" && \"${file_path}/${file_base_name}\""
-        }
-    ]
-}
+4.if leaves all full
+    force insert
+    split full leaf and index
 */
 
 

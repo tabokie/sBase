@@ -3,8 +3,13 @@
 #include "b_macro.h"
 #include "bplus.h"
 
-int main(void){
+/*!
+    \instrcution
+    \build Link b_macro.h bplus.h bplus.c bplustree_plus.c using gcc
+    Originally built with gcc 4.9.2
+*/
 
+int main(void){
     index_tree MainTree=initialIndexTree();
     setCurrentTree(MainTree);
     //test sample
