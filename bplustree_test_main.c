@@ -1,8 +1,10 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include "b_macro.h"
+#include <stdlib.h>// 
+#include <time.h>// time()
+#include "b_macro.h"// For(i,a,b)
 #include "bplus.h"
+// initialIndexTree(), setCurrentTree(), getCurrentTree(), putTree()
+// Insert(), ChangeRef(), ChangeName(), FetchAddr(),
 
 /*!
     \instrcution
@@ -10,13 +12,15 @@
     Originally built with gcc 4.9.2
 */
 
-//srand(time(NULL));
+int GetRandom(int ceiling);
 
 int main(void){
+    srand(time(NULL));
+
     index_tree MainTree=initialIndexTree();
     setCurrentTree(MainTree);
 
-    // sorted sequence test
+    // sorted sequence inserting test
     /*
     int sampleSize=100;
     printf("Enter test sample size:\n");
@@ -33,7 +37,7 @@ int main(void){
     putTree(MainTree);
     */
 
-    // manual test
+    // manual inserting test
     /*
     int value=0;
     int *addr=&value;
@@ -46,18 +50,28 @@ int main(void){
     }
     */
 
-    // random test
+    // random inserting test
     int sampleSize=0;    
     printf("Enter test sample size:\n");
     scanf("%d",&sampleSize);
     int bound=sampleSize*5;
     int* addr=&bound;
     int idx=0;
-    while(sampleSize--){// use same addr to avoid SAME IDX conflict
+    int i;
+    For(i,0,sampleSize){// use same addr to avoid SAME IDX conflict
         idx=GetRandom(bound);
         printf("Inserting: %d\n",idx);        
-        Insert(MainTree,idx,bound);
+        Insert(MainTree,idx,addr);
         putTree(MainTree);
+    }
+
+    // random fetching test
+    printf("Starting Fetching:\n");
+    addr=NIL_ADDR;
+    For(i,0,sampleSize){
+        idx=GetRandom(bound);
+        addr=FetchAddr(MainTree, idx);
+        printf("idx:%d ref:%d\n",idx,(int)addr);
     }
     return 0;
 }

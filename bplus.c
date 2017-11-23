@@ -10,7 +10,7 @@ index_tree initialIndexTree(void){
     Log();
     index_tree newTree=New(struct IndexTree,1);
     // load tree's signal
-    newTree->size=NIL;
+    newTree->size=NIL_NODE;
     // load index and empty leaves
     newTree->root=firstIndexPage();
     newTree->root->father=newTree;
@@ -119,6 +119,84 @@ int Insert(index_tree T, index_type idx, addr_type addr){
         }
     }
     return 1;
+}
+
+// on a index tree
+int ChangeRef(index_tree T, index_type idx, addr_type addr){
+    Log();
+    // no index page to search
+    if(T->root==NULL)Error(NIL tree!);
+    // search for right leaf
+    int i;
+    int treeHeight=T->height;// search depth
+    index_page cur=T->root;// search init
+    For(i,0,treeHeight){
+        // idx in [lo,hi)
+        int lo=findInterval(cur->key,idx,cur->size);
+        if(cur->pointer[lo]==NULL&&i<treeHeight-1)Error(NIL index page!);
+        else if(cur->pointer[lo]==NULL)Error(NIL leaf page!);
+        else cur=cur->pointer[lo];
+    }
+    // cur is the leaf
+    cur=(leaf_page)cur;
+    For(i,0,cur->size){
+        if(cur->key[i]==idx){
+            cur->pointer[i]=addr;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int ChangeName(index_tree T, index_type init, index_type new){
+    Log();
+    // no index page to search
+    if(T->root==NULL)Error(NIL tree!);
+    // search for right leaf
+    int i;
+    int treeHeight=T->height;// search depth
+    index_page cur=T->root;// search init
+    For(i,0,treeHeight){
+        // idx in [lo,hi)
+        int lo=findInterval(cur->key,init,cur->size);
+        if(cur->pointer[lo]==NULL&&i<treeHeight-1)Error(NIL index page!);
+        else if(cur->pointer[lo]==NULL)Error(NIL leaf page!);
+        else cur=cur->pointer[lo];
+    }
+    // cur is the leaf
+    cur=(leaf_page)cur;
+    For(i,0,cur->size){
+        if(cur->key[i]==init){
+            cur->key[i]=new;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+addr_type FetchAddr(index_tree T, index_type index){
+    Log();
+    // no index page to search
+    if(T->root==NULL)Error(NIL tree!);
+    // search for right leaf
+    int i;
+    int treeHeight=T->height;// search depth
+    index_page cur=T->root;// search init
+    For(i,0,treeHeight){
+        // idx in [lo,hi)
+        int lo=findInterval(cur->key,index,cur->size);
+        if(cur->pointer[lo]==NULL&&i<treeHeight-1)Error(NIL index page!);
+        else if(cur->pointer[lo]==NULL)Error(NIL leaf page!);
+        else cur=cur->pointer[lo];
+    }
+    // cur is the leaf
+    cur=(leaf_page)cur;
+    For(i,0,cur->size){
+        if(cur->key[i]==index){
+            return cur->pointer[i];
+        }
+    }
+    return NIL_ADDR;
 }
 
 /***********************************************************
@@ -454,11 +532,11 @@ int changeIndex(index_page index_un, index_type init, index_type new){
     // all ruled out
     if(index==NULL)Error(NIL index!);
     // tree node, no need to change
-    if(index->size==NIL)return 1;
+    if(index->size==NIL_NODE)return 1;
     // no index
     else if(index->size<=0)return 0;
     // NIL represent tree node, fatal error
-    if(init==NIL)Error(A NIL index comming from below!);
+    if(init==NIL_NODE)Error(A NIL index comming from below!);
     // NINF constantly guard left edge
     else if(init==NINF)Error(Try to replace the NINF index!);
     // start searching
@@ -521,7 +599,7 @@ int splitIndex(index_page index_un){// this routine destory previous index page
     if(index->size<=M)return 0;
     // no index page father
     // need to construct new one
-    if(index->father->size==NIL){
+    if(index->father->size==NIL_NODE){
         index_tree tree =getCurrentTree();
         if(tree!=index->father)Error(Tree Root Conflict!);
         // new index page

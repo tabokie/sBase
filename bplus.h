@@ -2,7 +2,7 @@
 #define BPLUSTREE_H_
 
 /*
-about B+tree
+About B+tree
 1.find corresponding leaf
 2.if not full
     2.1 Insert
@@ -18,6 +18,12 @@ about B+tree
 NOTICE: don't allow multiple ref!
 */
 
+/*
+\Build Instructions
+    Link b_macro.h bplus.h blus.c with host program.
+    Originally compiled with gcc 4.9.2
+*/
+
 
 /*!
     \def M
@@ -31,10 +37,18 @@ NOTICE: don't allow multiple ref!
     \def NIL
     \brief Sign for tree log node, or NIL node in the tree.
 */
-#ifndef NIL
-#define NIL             (-1e3)
+#ifndef NIL_NODE
+#define NIL_NODE        (-1e3)
 #endif
 
+
+/*
+    \def NIL
+    \brief Sign for tree log node, or NIL node in the tree.
+*/
+#ifndef NIL_ADDR
+#define NIL_ADDR        (NULL)
+#endif
 
 /*
     \def NINF
@@ -87,7 +101,7 @@ typedef struct IndexTree{
 
 
 /***********************************************************
-    Tree function class
+    Tree function class: Public Class
 ************************************************************/
 /*
     \brief Initial new tree.
@@ -108,6 +122,12 @@ void putTree(index_tree T);
 */
 int Insert(index_tree T, index_type idx, addr_type addr);
 
+/*
+    \brief Maintaining routine
+*/
+int ChangeRef(index_tree T, index_type idx, addr_type addr);
+int ChangeName(index_tree T, index_type init, index_type new);
+addr_type FetchAddr(index_tree T, index_type index);
 
 
 
