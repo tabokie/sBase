@@ -6,9 +6,16 @@
 /*
 	\brief Manager for direct command to db.
 */
+typedef struct DATABASE_t{
+	char* dbname;
+	index_tree ref;
+	data_table data;
+}* db;
+
+
 db GLOBAL_DATABASE_POINTER_=NULL;
-void setCurrentDatabase(){
-	GLOBAL_DATABASE_POINTER_ = ;
+void setCurrentDatabase(db p){
+	GLOBAL_DATABASE_POINTER_ = p;
 	return;
 }
 void resetCurrentDatabase(){
@@ -23,6 +30,8 @@ databaseFetchResult fetchDatabase(void){
 	else return DB_ACCESSIBLE;
 }
 
+typedef enum{CREATE_DB_SUCCESS, CREATE_DB_FAILURE} createDatabaseResult;
+createDatabaseResult createDatabase(char* dbname,)
 
 typedef enum{OPEN_DB_SUCCESS, OPEN_DB_NOT_FOUND} openCommandResult;
 openCommandResult openDatabase(char* dbname){
