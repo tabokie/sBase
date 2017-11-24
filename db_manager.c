@@ -6,6 +6,29 @@
 /*
 	\brief Manager for direct command to db.
 */
+
+// first implementation: one index to two value
+typedef struct VALUE_TYPE_t{
+	int value1;
+	int value2;
+}value_type;
+
+typedef struct ENTRY_t{
+	index_type primary_index;
+	value_type value;
+}entry_type;
+
+typedef struct MEMORY_BLOCK_t{
+	int capacity;
+	entry_type* entries;
+}* mem_block;
+
+typedef struct DATA_TABLE_t{
+	int block_size;
+	addr_type* base_addr;// base addr for each memory blocks
+	mem_block* entries;// flexible memory blocks, easy to copy
+}* data_table;
+
 typedef struct DATABASE_t{
 	char* dbname;
 	index_tree ref;

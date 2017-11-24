@@ -9,6 +9,9 @@
 	\brief Process meta command and pass db operating command to db manager
 */
 
+/*
+	\brief Interface Function Class
+*/
 void putSystemLog(void){
 	// print version
 	printf("sBase 0.0.1 (Nov 24 2017, 11:40) on win32.\n");
@@ -18,13 +21,16 @@ void putSystemLog(void){
 	printf("Type .help, .copyright, .credits, .license for more information.\n");
 	return;
 }
-
 void printPrompt(void){
 	printf(">>> ");
 }
+void printUnioned(void){
+	printf("... ");
+}
 
-
-
+/*
+	\ Read input stream and tokenize.
+*/
 typedef struct INPUT_t{
 	char** tokens;
 	int size;
@@ -41,25 +47,14 @@ inputBuffer newInputBuffer(void){
 	
 	return new;
 }
-
-/*
-typedef struct BUFFER_t{
-	char* buffer;
-	int capacity;
-}* BUFFER;
-
-typedef enum{EXPAND_BUFFER_SUCCESS, EXPAND_BUFFER_FAILURE} expandBufferResult;
-
-expandBufferResult expandBuffer(BUFFER buffer_like_obj){
-	char* previous_buffer=buffer_like_obj->buffer;
-	buffer_like_obj->buffer=New(char, buffer_like_obj->capacity*2+1);
-	buffer_like_obj->capacity*=2;
-
-	memcpy(buffer_like_obj->buffer, previous_buffer, sizeof());
-
-	return EXPAND_BUFFER_SUCCESS;
+void clearInput(inputBuffer input){
+	free(input->tokens);
+	input->tokens=New(char*, INIT_BUFFER_s);
+	input->size=0;
+	input->capacity=INIT_BUFFER_s;
+	return;
 }
-*/
+
 #define CMD_END_CHR		";"
 void readInput(inputBuffer input){
 	char first_buffer[INIT_BUFFER_s+1]={0};
@@ -69,7 +64,7 @@ void readInput(inputBuffer input){
 	// if havenot read end
 	while(strlen(first_buffer)==strcspn(first_buffer, CMD_END_CHR)){
 		Initial(first_buffer, 0, first_size);
-		scanf_s("%s",first_buffer,first_size);
+		scanf_s("%s",first_buffer,first_size+1);// set_constraint_handler_s ?
 		while(strlen(first_buffer)+strlen(second_buffer)>second_size){
 			char* tp=second_buffer;
 			second_buffer=New(char,second_size*2+1);
@@ -78,10 +73,13 @@ void readInput(inputBuffer input){
 			memcpy(second_buffer, tp, sizeof(char)*strlen(tp));
 		}
 		strcat(second_buffer, first_buffer);
+		printUnioned();
 	}
 
 	// tokenize
 	toTokens(input, second_buffer);
+	free(first_buffer);
+	free(second_buffer);
 	return input;
 }
 
@@ -98,27 +96,31 @@ int toTokens(inputBuffer input, char* string){
 		}
 		input->tokens[input->size++]=buf;
 	}
-
 }
 
-void clearInput(inputBuffer input){
-	free(input->tokens);
-	input->tokens=New(char*, INIT_BUFFER_s);
-	input->size=0;
-	input->capacity=INIT_BUFFER_s;
-	return;
-}
+/*
+	\ Parser: Do classification, and produce pickled paramaters for db manager.
+*/
 
 // Now Supported Command:
 // use {dbname}
+//	-> send message to openDB
 // drop {dbname}
-// create
-// insert into {table_name} ({field}) ({values})
+//	-> send message to resetDB
+// create {dbname}/table{rowname, rowtype}/ref(rowname)
+//	-> send message to createTable()
+// insert into {table_name} {indexname, value}
+//	-> construct a entry object
+//	-> send message to insertDB()
 // select * from {table_name} where {description}
+//	-> construct syntax tree for description and construct lambda function 
+//	-> send message to select(table, functionPointerForIndex, functionPointerForValue)
+//	-> and store the result in database manager buffer
+//	-> call print data routine with pointer to manager buffer
 int loadCommand(inputBuffer input){}
 
-typedef enum{META_COMMAND_SUCCESS, META_COMMAND_NOT_FOUND} metaComandResult;
-metaComandResult runMetaCommand(char* cmdString){
+typedef enum{META_COMMAND_SUCCESS, META_COMMAND_NOT_FOUND} metaCommandResult;
+metaCommandResult runMetaCommand(char* cmdString){
 
 }
 
