@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>// 
-#include <time.h>// time()
-#include "b_macro.h"// For(i,a,b)
+#include <stdlib.h> // 
+#include <time.h> // time()
+#include "b_macro.h" // For(i,a,b)
 #include "bplus.h"
 // initialIndexTree(), setCurrentTree(), getCurrentTree(), putTree()
 // Insert(), ChangeRef(), ChangeName(), FetchAddr(),

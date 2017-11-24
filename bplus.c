@@ -23,13 +23,13 @@ index_tree initialIndexTree(void){
 }
 
 // @NOT_SAFE
-index_tree GLOBAL_Pointer=NULL;
+index_tree GLOBAL_BPLUS_TREE_Pointer_=NULL;
 void setCurrentTree(index_tree t){
-    GLOBAL_Pointer=t;
+    GLOBAL_BPLUS_TREE_Pointer_=t;
     return;
 }
 index_tree getCurrentTree(void){
-    return GLOBAL_Pointer;
+    return GLOBAL_BPLUS_TREE_Pointer_;
 }
 
 // work bad for larger tree

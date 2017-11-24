@@ -29,4 +29,9 @@
 #define BP(note)                    ({printf(#note);printf(", In function %s",__func__);printf("\n");})
 #endif
 
+#ifndef BOOL_TYPE_
+#define BOOL_TYPE_
+typedef enum{false, true} bool;
+#endif
+
 #endif  /* BASIC_MACRO_ */
