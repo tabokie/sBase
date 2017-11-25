@@ -169,6 +169,8 @@ commandDispatchResult commandDispatch(char** tokens){
 			}
 		}
 	}
+	// create {dbname}/table{rowname, rowtype}/ref(rowname)
+//	-> send message to createTable()
 	if(strcmp(tokens[0],"create")==0){
 		if(tokens[1]==NULL||strlen(token[1])==0){
 			printf("Error: No assigned operand for command CREATE.\n");
@@ -202,19 +204,29 @@ commandDispatchResult commandDispatch(char** tokens){
 			}
 		}
 	}
+	// insert into {table_name} {indexname, value}
+//	-> construct a entry object
+//	-> send message to insertDB()
 	if(strcmp(tokens[0],"insert")==0){
 		if(tokens[1]==NULL||strlen(token[1])==0){
 			printf("Error: No assigned operand for command INSERT.\n");
 			return DISPATCH_FAILURE;
 		}
 		if(strcmp(tokens[1],"into")==0){
-
+			// get table_name
+			// get index_name
+			// fetch index
 		}
 		else{
 			printf("Error: No insert target examined!\n");
 			return DISPATCH_FAILURE;
 		}
 	}
+	// select * from {table_name} where {description}
+//	-> construct syntax tree for description and construct lambda function 
+//	-> send message to select(table, functionPointerForIndex, functionPointerForValue)
+//	-> and store the result in database manager buffer
+//	-> call print data routine with pointer to manager buffer
 	if(strcmp(tokens[0],"select")==0){
 		if(tokens[1]==NULL||strlen(token[1])==0){
 			printf("Error: No assigned operand for command SELECT.\n");
