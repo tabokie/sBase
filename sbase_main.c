@@ -22,11 +22,8 @@ inputBuffer newInputBuffer(void);
 void clearInput(inputBuffer input);
 #define CMD_END_CHR		";"
 void readInput(inputBuffer input);
-#define SPLITER_CHR		" \n"
+#define SPLITER_CHR		"; \n"
 void toTokens(inputBuffer input, char* string);
-/*
-	\brief Process meta command and pass db operating command to db manager
-*/
 
 /*
 	\brief Interface Function Class
@@ -94,11 +91,10 @@ void readInput(inputBuffer input){
 	
 	// tokenize
 	toTokens(input, second_buffer);
-	free(second_buffer);
+	//free(second_buffer); been refed, cannot get freed
 	return;
 }
 
-#define SPLITER_CHR		" \n"
 void toTokens(inputBuffer input, char* string){
 	char* buf = strtok(string, SPLITER_CHR); // convert spliter to \0
 	if(buf==NULL)return;
@@ -111,6 +107,7 @@ void toTokens(inputBuffer input, char* string){
 			memcpy(input->tokens, tp, sizeof(char*)*input->size);
 			free(tp);
 		}
+
 		input->tokens[input->size++]=buf;
 	}while((buf=strtok(NULL, SPLITER_CHR))!=NULL);
 	return;
@@ -119,7 +116,8 @@ void toTokens(inputBuffer input, char* string){
 /*
 	\ Parser: Do classification, and produce pickled paramaters for db manager.
 */
-
+// Now Supported Meta Command:
+// .exit
 // Now Supported Database Command:
 // use {dbname}
 //	-> send message to openDB
@@ -135,11 +133,95 @@ void toTokens(inputBuffer input, char* string){
 //	-> send message to select(table, functionPointerForIndex, functionPointerForValue)
 //	-> and store the result in database manager buffer
 //	-> call print data routine with pointer to manager buffer
-int loadCommand(inputBuffer input){}
+typedef enum{DB_OPEN_SUCCESS, DB_OPEN_NOT_FOUND}databaseOpenResult;
+databaseOpenResult openDatabase(char* dbname){
+	return DB_OPEN_NOT_FOUND;
+}
 
-typedef enum{META_COMMAND_SUCCESS, META_COMMAND_NOT_FOUND} metaCommandResult;
-metaCommandResult runMetaCommand(char* cmdString){
 
+typedef enum{DISPATCH_META, DISPATCH_META_EXIT, DISPATCH_DB_CMD, DISPATCH_FAILURE} commandDispatchResult;
+commandDispatchResult commandDispatch(char** tokens){
+	if(tokens==NULL||tokens[0]==NULL||strlen(token[0])==0){
+		printf("No recognized token.\n");
+		return DISPATCH_FAILURE;
+	}
+	if(tokens[0][0]=='.'){
+		// try meta command
+		if(strcmp(tokens[0],".exit")==0){
+			// meta command: exit
+			//shutDatabase();
+			//systemLog();
+			return DISPATCH_META_EXIT;
+		}
+		else return DISPATCH_FAILURE;
+	}
+	// try database command
+	if(strcmp(tokens[0],"use")==0){
+		if(tokens[1]==NULL){
+			printf("Error: No assigned database name for command USE.\n");
+			return DISPATCH_FAILURE;
+		}
+		switch(openDatabase(tokens[1])){
+			case DB_OPEN_SUCCESS: break;
+			case DB_OPEN_NOT_FOUND: {
+				printf("No database named as %s found!\n",tokens[1]);
+				return DISPATCH_FAILURE;
+			}
+		}
+	}
+	if(strcmp(tokens[0],"create")==0){
+		if(tokens[1]==NULL||strlen(token[1])==0){
+			printf("Error: No assigned operand for command CREATE.\n");
+			return DISPATCH_FAILURE;
+		}
+		else if(strcmp(tokens[1],"table")==0){
+
+		}
+		else if(strcmp(tokens[1],"index")==0){
+
+		}
+		else
+			switch(createDatabase(tokens[1])){
+				case DB_CREATE_SUCCESS: break;
+				case DB_CREATE_FAILURE: {
+					printf("Unable to create a database named %s!\n",tokens[1]);
+					return DISPATCH_FAILURE;
+				}
+			}
+	}
+	if(strcmp(tokens[0],"drop")==0){
+		if(tokens[1]==NULL||strlen(token[1])==0){
+			printf("Error: No assigned database name for command DROP.\n");
+			return DISPATCH_FAILURE;
+		}
+		switch(dropDatabase(tokens[1])){
+			case DB_DROP_SUCCESS: break;
+			case DB_DROP_FAILURE: {
+				printf("Can's drop database named %s!\n",tokens[1]);
+				return DISPATCH_FAILURE;
+			}
+		}
+	}
+	if(strcmp(tokens[0],"insert")==0){
+		if(tokens[1]==NULL||strlen(token[1])==0){
+			printf("Error: No assigned operand for command INSERT.\n");
+			return DISPATCH_FAILURE;
+		}
+		if(strcmp(tokens[1],"into")==0){
+
+		}
+		else{
+			printf("Error: No insert target examined!\n");
+			return DISPATCH_FAILURE;
+		}
+	}
+	if(strcmp(tokens[0],"select")==0){
+		if(tokens[1]==NULL||strlen(token[1])==0){
+			printf("Error: No assigned operand for command SELECT.\n");
+			return DISPATCH_FAILURE;
+		}
+	}
+	return DISPATCH_FAILURE;
 }
 
 int main(int argc, char* argv[]){
@@ -149,22 +231,23 @@ int main(int argc, char* argv[]){
 
 	inputBuffer input=newInputBuffer();
 
-	// enter prompt loop
+	// enter prompt loop, handle all the I/O operation.
 	while(true){
 		printPrompt();
 		readInput(input);
-		/*
-		if(input->tokens[0][0]=='.'){
-			metaCommand(input->tokens);
+		
+		switch(commandDispatch(input->tokens)){
+			case DISPATCH_FAILURE: {
+				printf("Illegal meta command, nor database command.\n");
+				break;
+			}
+			case DISPATCH_META_EXIT: {
+				clearInput(input);
+				printf("Interface shut.\n");
+				exit(0);
+			}
 		}
-		else switch(){
 
-		}
-		switch(fetchDatabase()){
-			case(DB_NOT_ACCESSIBLE):Error(DB_NOT_ACCESSIBLE);
-			case(DB_ACCESSIBLE):continue;
-		}
-		*/
 		clearInput(input);
 	}
 	
