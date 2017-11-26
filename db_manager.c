@@ -88,25 +88,30 @@ typedef struct DATABASE_t{
 	char** table_name;
 	table_id_t* table_id;
 	table_meta_t* table_meta;
-}* db;
+}* db_t;
 
 typedef DB_ARRAY_t{
 	int num;
-	db* databases;
+	char** dbnames;
+	db_t* databases;
 }* dbs_t;
 
 #define MAX_DB_SIZE		(3)
-dbs_t* GLOBAL_DATABASE_ARRAY_[MAX_DB_SIZE]={0};
+dbs_t GLOBAL_DATABASE_ARRAY_=initialDBs();
+dbs_t initialDBs(void){
+	dbs_t new=New(struct DB_ARRAY_t,1);
+	new->num=0;
+	new->dbname=New(char*, MAX_DB_SIZE);
+	new->databases=New(struct DATABASE_t,MAX_DB_SIZE);
+	return new;
+}
+
 /*
 	\brief Manager for direct command to db.
 */
 
-
-
-
-
-db GLOBAL_DATABASE_POINTER_=NULL;
-void setCurrentDatabase(db p){
+db_t GLOBAL_DATABASE_POINTER_=NULL;
+void setCurrentDatabase(db_t p){
 	GLOBAL_DATABASE_POINTER_ = p;
 	return;
 }
@@ -121,13 +126,40 @@ databaseFetchResult fetchDatabase(void){
 	else return DB_ACCESSIBLE;
 }
 
-typedef enum{CREATE_DB_SUCCESS, CREATE_DB_FAILURE} createDatabaseResult;
+typedef enum{CREATE_DB_SUCCESS, CREATE_DB_FULL, CREATE_DB_FAILURE} createDatabaseResult;
 createDatabaseResult createDatabase(char* dbname){
+	if(GLOBAL_DATABASE_ARRAY_->num>=MAX_DB_SIZE)return CREATE_DB_FULL;
+	else if(GLOBAL_DATABASE_ARRAY_->databases[GLOBAL_DATABASE_ARRAY_->num]=newDatabase(dbname)==NULL){
+		return CREATE_DB_FAILURE;
+	}
+	GLOBAL_DATABASE_ARRAY_->dbnames[GLOBAL_DATABASE_ARRAY_->num]=dbname;
+	GLOBAL_DATABASE_ARRAY_->num++;
+	return CREATE_DB_SUCCESS;
+}
 
+db_t newDatabase(char* dbname){
+	if(strlen(dbname)==0)return NULL;
+	else{
+		db_t new=New(struct DATABASE_t,1);
+		new->dbname=dbname;
+		new->table_num=0;
+		new->table_name=NULL;
+		new->table_id=NULL;
+		new->table_meta=NULL;
+		return new;
+	}
 }
 
 typedef enum{OPEN_DB_SUCCESS, OPEN_DB_NOT_FOUND} openCommandResult;
 openCommandResult openDatabase(char* dbname){
-
+	int i;
+	For(i,0,GLOBAL_DATABASE_ARRAY_->num){
+		if(strcmp(GLOBAL_DATABASE_ARRAY_->dbnames[i],dbname)==0){
+			setCurrentDatabase(GLOBAL_DATABASE_ARRAY_->databases[i]);
+			break;
+		}
+	}
+	if(i>=GLOBAL_DATABASE_ARRAY_->num)return OPEN_DB_NOT_FOUND;
+	return OPEN_DB_SUCCESS;
 }
 

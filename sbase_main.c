@@ -4,7 +4,7 @@
 #include <time.h>
 #include "b_macro.h"
 //#include "bplus.h"
-//#include "db_manager.h"
+#include "db_manager.h"
 
 void putSystemLog(void);
 void printPrompt(void);
@@ -133,15 +133,10 @@ void toTokens(inputBuffer input, char* string){
 //	-> send message to select(table, functionPointerForIndex, functionPointerForValue)
 //	-> and store the result in database manager buffer
 //	-> call print data routine with pointer to manager buffer
-typedef enum{DB_OPEN_SUCCESS, DB_OPEN_NOT_FOUND}databaseOpenResult;
-databaseOpenResult openDatabase(char* dbname){
-	return DB_OPEN_NOT_FOUND;
-}
-
 
 typedef enum{DISPATCH_META, DISPATCH_META_EXIT, DISPATCH_DB_CMD, DISPATCH_FAILURE} commandDispatchResult;
 commandDispatchResult commandDispatch(char** tokens){
-	if(tokens==NULL||tokens[0]==NULL||strlen(token[0])==0){
+	if(tokens==NULL||tokens[0]==NULL||strlen(tokens[0])==0){
 		printf("No recognized token.\n");
 		return DISPATCH_FAILURE;
 	}
@@ -162,8 +157,8 @@ commandDispatchResult commandDispatch(char** tokens){
 			return DISPATCH_FAILURE;
 		}
 		switch(openDatabase(tokens[1])){
-			case DB_OPEN_SUCCESS: break;
-			case DB_OPEN_NOT_FOUND: {
+			case OPEN_DB_SUCCESS: break;
+			case OPEN_DB_NOT_FOUND: {
 				printf("No database named as %s found!\n",tokens[1]);
 				return DISPATCH_FAILURE;
 			}
@@ -172,7 +167,7 @@ commandDispatchResult commandDispatch(char** tokens){
 	// create {dbname}/table{rowname, rowtype}/ref(rowname)
 //	-> send message to createTable()
 	if(strcmp(tokens[0],"create")==0){
-		if(tokens[1]==NULL||strlen(token[1])==0){
+		if(tokens[1]==NULL||strlen(tokens[1])==0){
 			printf("Error: No assigned operand for command CREATE.\n");
 			return DISPATCH_FAILURE;
 		}
@@ -184,22 +179,25 @@ commandDispatchResult commandDispatch(char** tokens){
 		}
 		else
 			switch(createDatabase(tokens[1])){
-				case DB_CREATE_SUCCESS: break;
-				case DB_CREATE_FAILURE: {
+				case CREATE_DB_SUCCESS: break;
+				case CREATE_DB_FAILURE: {
 					printf("Unable to create a database named %s!\n",tokens[1]);
 					return DISPATCH_FAILURE;
 				}
 			}
 	}
 	if(strcmp(tokens[0],"drop")==0){
-		if(tokens[1]==NULL||strlen(token[1])==0){
+		/*
+		if(tokens[1]==NULL||strlen(tokens[1])==0){
 			printf("Error: No assigned database name for command DROP.\n");
 			return DISPATCH_FAILURE;
 		}
-		switch(dropDatabase(tokens[1])){
-			case DB_DROP_SUCCESS: break;
-			case DB_DROP_FAILURE: {
-				printf("Can's drop database named %s!\n",tokens[1]);
+		*/
+		switch(dropDatabase()){
+			case DROP_DATABASE_SUCCESS: break;
+			case DROP_NO_DATABASE: {
+				//printf("Can's drop database named %s!\n",tokens[1]);
+				printf("No used database to drop!\n");
 				return DISPATCH_FAILURE;
 			}
 		}
@@ -208,7 +206,7 @@ commandDispatchResult commandDispatch(char** tokens){
 //	-> construct a entry object
 //	-> send message to insertDB()
 	if(strcmp(tokens[0],"insert")==0){
-		if(tokens[1]==NULL||strlen(token[1])==0){
+		if(tokens[1]==NULL||strlen(tokens[1])==0){
 			printf("Error: No assigned operand for command INSERT.\n");
 			return DISPATCH_FAILURE;
 		}
@@ -228,7 +226,7 @@ commandDispatchResult commandDispatch(char** tokens){
 //	-> and store the result in database manager buffer
 //	-> call print data routine with pointer to manager buffer
 	if(strcmp(tokens[0],"select")==0){
-		if(tokens[1]==NULL||strlen(token[1])==0){
+		if(tokens[1]==NULL||strlen(tokens[1])==0){
 			printf("Error: No assigned operand for command SELECT.\n");
 			return DISPATCH_FAILURE;
 		}
