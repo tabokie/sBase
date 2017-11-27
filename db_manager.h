@@ -4,61 +4,56 @@
 #define DB_MANAGER_H_
 
 typedef struct INDEX_META_t{
-	int a;// test
+	int row_id;// test
 }* index_meta_t;
 
-// first implementation: one index to two value
-typedef struct VALUE_TYPE_t{
-	int value1;
-	int value2;
-}value_type;
-
-typedef struct ENTRY_t{
-	index_type primary_index;
-	value_type value;
-}entry_type;
-
-typedef struct MEMORY_BLOCK_t{
-	int size;
-	entry_type* entries;
-}* mem_block;
+typedef struct PAGER_t{
+	// INID -> page_no and relative addr
+	void* base_addr;
+	int offset;
+}* pager_t;
 
 typedef char* table_name_t;
 typedef char* row_name_t;
-#ifndef ENTRY_BLOCK_SIZE
-#define ENTRY_BLOCK_SIZE		(20)
-#endif
+
+typedef struct ROW_META_t{
+	row_name_t row_name;
+	int offset;
+}* row_meta_t;
+
 typedef struct DATA_TABLE_t{
 	// meta data
-	table_id_t table_id;
+	int table_id;
 	table_name_t table_name;
 	int row_num;
-	row_name_t* row_names;
+	row_meta_t* row_meta;// row_id to row_name and row offset
 
 	// content part
-	addr_type* base_addr;// base addr for each memory blocks
-	mem_block* entry_block;// flexible memory blocks, easy to copy
+	// give INID and row_offset to fetch single data
+	// give insert content and get INID
+	int page_num;
+	pager_t* pages;
 
 	// index part
-	index_meta_t index_meta;
+	int index_num;
+	index_meta_t* index_meta;
 	index_tree* indexs;
-}* data_table_t;
+}* table_meta_t;
 
 typedef int table_id_t ;
-typedef data_table_t table_meta_t;
 typedef struct DATABASE_t{
 	char* dbname;
 	int table_num;
 	char** table_name;
 	table_id_t* table_id;
-	table_meta_t* table_meta;
-}* db_t;
+	table_meta_t* table_;
+}* database_t;
 
-typedef struct DB_ARRAY_t{
+typedef struct DB_MANAGER_t{
 	int num;
 	char** dbnames;
-	db_t* databases;
-}* dbs_t;
+	database_t* databases;
+}* manager_t;
 
 /*
 	First Abstraction: Database
@@ -69,12 +64,14 @@ typedef struct DB_ARRAY_t{
 #ifndef MAX_DB_SIZE
 #define MAX_DB_SIZE		(3)
 #endif
-dbs_t GLOBAL_DATABASE_ARRAY_=initialDBs();
-dbs_t initialDBs(void);
+
+#define INITIAL_DBS		(manager_t)(NULL);
+//manager_t initialDBs(void);
+manager_t GLOBAL_DATABASE_ARRAY_=INITIAL_DBS;
 
 // switch workspace
-db_t GLOBAL_DATABASE_POINTER_=NULL;
-void setCurrentDatabase(db_t p);
+database_t GLOBAL_DATABASE_POINTER_=NULL;
+void setCurrentDatabase(database_t p);
 void resetCurrentDatabase(void);
 
 // check operation legelity
@@ -85,7 +82,7 @@ fetchDatabaseResult fetchDatabase(void);
 typedef enum{CREATE_DB_SUCCESS, CREATE_DB_FULL, CREATE_DB_FAILURE} createDatabaseResult;
 createDatabaseResult createDatabase(char* dbname);
 // appended function
-db_t newDatabase(char* dbname);
+database_t newDatabase(char* dbname);
 
 // command use {dbname}
 typedef enum{OPEN_DB_SUCCESS, OPEN_DB_NOT_FOUND} openDatabaseResult;
@@ -104,12 +101,19 @@ dropDatabaseResult dropDatabase(void){
 	}
 }
 
-
 /*
 	Second Abstraction: Table
 	including: index_trees, entries, I/O methods
 */
+typedef enum{INSERT_TO_TABLE_SUCCESS, INSERT_TO_TABLE_NOT_FOUND, INSERT_TO_TABLE_FAILURE} insertToTableResult; 
+insertToTableResult insertToTable(char* tableName, ){
 
+}
+
+ typedef enum{SELECT_FROM_TABLE_SUCCESS, SELECT_FROM_TABLE_NOT_FOUND, SELECT_FROM_TABLE_FAILURE} selectFromTableResult;
+ selectFromTableResult selectFromTable(char* tableName;){
+ 	
+ }
 
 
 

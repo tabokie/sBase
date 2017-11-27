@@ -32,14 +32,6 @@
     BIT_OP(30)	\
     BIT_OP(31)	
 
-#define BIT_OP(NO) unsigned BIT##NO;
-LIST_OF_BITS
-#undef BIT_OP
-
-#define BIT_OP(NO) printf("%s = %d\n", #name, name);
-LIST_OF_BITS
-#undef BIT_OP
-
 typedef union COMPLEX_INT{
 	unsigned __int64 _ID;
 	struct 32_DIGIT_HEAD{
@@ -49,6 +41,16 @@ typedef union COMPLEX_INT{
 		unsigned int _remainder;
 	}_DIGIT;
 }cint;
+
+typedef __int64 inid;
+
+// page and addr to inid
+// (internal identifier)
+inid toINID(int page_no, int addr){
+    
+}
+
+// inid to page and addr
 
 int BIT(cint n,int i){
 	if(i<0||i>31)return -1;

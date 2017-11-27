@@ -3,7 +3,6 @@
 #include <string.h>
 #include <time.h>
 #include "b_macro.h"
-//#include "bplus.h"
 #include "db_manager.h"
 
 void putSystemLog(void);
@@ -140,6 +139,7 @@ commandDispatchResult commandDispatch(char** tokens){
 		printf("No recognized token.\n");
 		return DISPATCH_FAILURE;
 	}
+	// meta command
 	if(tokens[0][0]=='.'){
 		// try meta command
 		if(strcmp(tokens[0],".exit")==0){
@@ -202,6 +202,7 @@ commandDispatchResult commandDispatch(char** tokens){
 			}
 		}
 	}
+	// command to table
 	// insert into {table_name} {indexname, value}
 //	-> construct a entry object
 //	-> send message to insertDB()
