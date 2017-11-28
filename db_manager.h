@@ -142,5 +142,12 @@ insertToTableResult insertToTable(char* tableName, uncertain_type data){
  }
 
 
+addr_type insertToPage(pager_t target, char* data){
+	if(target->top>=TOP_MAX)return NULL;
+	addr_type insertPoint = target->base_addr+target->offset*top;
+	memcpy(insertPoint, data);
+	target->top++;
+	return insertPoint;
+}
 
 #endif	/*	DB_MANAGER_H_	*/
