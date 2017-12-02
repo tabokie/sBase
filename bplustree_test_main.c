@@ -62,7 +62,8 @@ int main(void){
         idx=GetRandom(bound);
         printf("Inserting: %d\n",idx);        
         Insert(MainTree,idx,addr);
-        putTree(MainTree);
+        // putTree(MainTree);
+        printAsFileTree(MainTree);
     }
 
     // random fetching test

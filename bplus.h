@@ -117,6 +117,9 @@ index_tree getCurrentTree(void);
     \brief Print the tree log to console.
 */
 void putTree(index_tree T);
+
+void printAsFileTree(index_tree T);
+
 /*
     \brief (index,addr) inserting routine.
 */
@@ -235,6 +238,11 @@ int insertPointer_withBuffer(index_page index,int p, leaf_page new);
 */
 int splitIndex(index_page l);
 
+#ifndef INDENT
+#define INDENT(n)       ({printf(">");int in_i_;for(in_i_=0;in_i_<(n);in_i_++)printf("....");})
+#endif
+
+void printNodeWithIndent(index_page node,int height, int indent);
 
 /***********************************************************
     Additional function class

@@ -78,6 +78,18 @@ void putTree(index_tree T){
     return;
 }
 
+// print file index tree
+void printAsFileTree(index_tree T){
+    printf("==================\n");
+    // print log
+    printf("Tree height: %d\nLinked leaves number: %d\n",T->height,T->l_size);
+
+    printNodeWithIndent(T->root,T->height,0);
+
+    // printf("===============================================<\n");
+    return;
+}
+
 // on a index tree
 int Insert(index_tree T, index_type idx, addr_type addr){
     Log();
@@ -650,6 +662,18 @@ int splitIndex(index_page index_un){// this routine destory previous index page
     freeLeafPage(index);
     return 1;
 
+}
+
+
+void printNodeWithIndent(index_page node,int height, int indent){
+    int i;
+    For(i,0,node->size){
+        INDENT(indent);
+        if(node->key[i]<0)printf("NINF\n");
+        else printf("%d\n",node->key[i]);
+        if(height>=1)
+            printNodeWithIndent(node->pointer[i],height-1,indent+1);
+    }
 }
 
 
