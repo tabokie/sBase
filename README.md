@@ -1,12 +1,14 @@
 # sBase
 
-## Overview: sketch for phrase 1
+## Overview for phrase one
 
-* build a B+tree for index setup.
+* B+tree for index setup.
 
-* build command-line interface for manipulating the database. <<< current progress.
+* Command-line interface for manipulating the database. 
 
-* based on basic command required for interacting, implement manipulation routines.
+* based on basic command required for interacting, implementing manipulating routines.
 
-* construct disk storage manager.
+	- **[current progress]**
+
+* On-disk storage manager.
 
