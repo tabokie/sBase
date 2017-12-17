@@ -34,4 +34,10 @@
 typedef enum{false, true} bool;
 #endif
 
+#define CLOCK_INIT					struct timespec start,end;
+#define CLOCK_START					clock_gettime(CLOCK_MONOTONIC,&start);
+#define CLOCK_END					clock_gettime(CLOCK_MONOTONIC,&end);
+#define CLOCK_SHOW(note)			printf("Elapsed time(%s): %.6f ms\n",#note,\
+									1000*(end.tv_sec-start.tv_sec)+(double)(end.tv_nsec-start.tv_nsec)/1000000);
+
 #endif  /* BASIC_MACRO_ */
