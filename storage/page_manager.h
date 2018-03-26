@@ -15,6 +15,15 @@ struct PageMeta{
   FileHandle file;
   size_t offset;
   size_t size;
+  PageMeta(FileHandle f, size_t o, size_t s = -1):
+    file(f),offset(o),size(s){
+      if(size < 0){
+        size = file.block_size;
+      }
+    }
+  PageMeta(PageMeta& that):file(that.file),offset(that.offset),size(that.size){ }
+  ~PageMeta(){ }
+
 };
 
 // unique page handle & file handle
@@ -39,9 +48,9 @@ class PageManager{
   Status Write(PageHandle page, size_t size, char* data_ptr);
  private:
   // mem pool interface
-  FlushPage();
-  FetchPage();
-
+  Status FlushPage(PageHandle page);
+  // disk interface
+  Status DirectWritePage(PageHandle page, char* data_ptr);
 
 };
 

@@ -33,17 +33,6 @@ MemPool::~MemPool(void){
   }
 }
 
-char* MemPool::AllocNewBlock(void){
-  assert(free_.empty());
-  char* new_ptr = new char[kBlockSize];
-  size_t new_page = blocks_.size();
-  blocks_.push_back(new_ptr);
-  free_.push(new_page);
-  return new_ptr;
-}
-
-
-
 
 } // namespace sbase
 
