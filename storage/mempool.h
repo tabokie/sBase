@@ -14,6 +14,7 @@ using std::queue;
 
 const size_t kBlockSize = 4000;
 const size_t kFullSize = 2;
+const size_t kInitBlock = 10;
 
 class MemPool{
  private:
@@ -22,9 +23,8 @@ class MemPool{
   queue<size_t> free_;
 
  public:
-  MemPool(){AllocBlocks(10);};
+  MemPool(){AllocBlocks(kInitBlock);};
   ~MemPool();
-  Status New(PageHandle page, size_t size);
   Status New(PageHandle page, size_t size, char*& ret_ptr);
   Status Free(PageHandle page);
 
@@ -36,7 +36,7 @@ class MemPool{
   inline char* get_ptr(PageHandle page){
     size_t res;
     pool_.Get(page, res);
-    if(res < 0 || res >= blocks_.size()) return nullptr;
+    if(res >= blocks_.size()) return nullptr;
     return blocks_[res];
   }
   inline bool full(void){
@@ -52,12 +52,13 @@ class MemPool{
     return new_ptr;
   }
   inline bool AllocBlocks(size_t size){
-    for(int i = 0; i< size; i++){
+    for(int i = 0; i < size; i++){
       blocks_.push_back(new char[kBlockSize]);
       free_.push(i);
     }
     return true;
   }
+
 
 };
 

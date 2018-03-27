@@ -2,6 +2,12 @@
 
 namespace sbase {
 
+MemPool::~MemPool(void){
+  for(size_t i = 1; i <= blocks_.size(); i++){
+    delete [] blocks_[i-1];
+  }
+}
+
 Status MemPool::New(PageHandle page, size_t size, char*& ret_ptr){
   char* new_ptr = nullptr;
   if(free_.empty()){
@@ -18,20 +24,16 @@ Status MemPool::New(PageHandle page, size_t size, char*& ret_ptr){
 }
 
 Status MemPool::Free(PageHandle page){
-  size_t res = -1;
+  size_t res = 0;
   if(!pool_.Get(page, res))return Status::NotFound("Hash Get Failed");
-  if(res < 0 || res >= blocks_.size() )return Status::Corruption("Hash Return Erroneous Index");
-  char* new_ptr = blocks_[res];
+  if(res-1 < 0 || res-1 >= blocks_.size() )return Status::Corruption("Hash Return Erroneous Index");
+  char* new_ptr = blocks_[res-1];
   free_.push(res);
   pool_.Delete(page);
   return Status::OK();
 }
 
-MemPool::~MemPool(void){
-  for(size_t i = 0; i < blocks_.size(); i++){
-    delete [] blocks_[i];
-  }
-}
+
 
 
 } // namespace sbase

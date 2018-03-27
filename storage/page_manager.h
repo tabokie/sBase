@@ -32,6 +32,7 @@ class PageManager{
   vector<WritableFile> file_;
   vector<PageMeta> page_;
   MemPool pool_;
+  BuzyQueue<size_t> buzy_;
 
  public:
   PageManager();

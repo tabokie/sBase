@@ -103,6 +103,25 @@ class HashMap{
     return false;
   }
 
+  bool DeleteOnGet(KeyType key, ElementType& element){
+    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
+    unsigned int cur = hash_val;
+    int offset = 1;
+    // quadratic proding
+    do{
+      if(!table_[cur] || table_[cur]->deleted)break;
+      if( table_[cur]->key == key)break;
+      cur = (cur+ 2*offset - 1) % size_;
+      offset++;
+    }while(cur != hash_val);
+    if(table_[cur] && !table_[cur]->deleted && table_[cur]->key==key){
+      table_[cur]->deleted = true;
+      element = table_[cur]->element;
+      return true;
+    }
+    return false;
+  }
+
   bool Clear(void){
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
       size_ = 0;

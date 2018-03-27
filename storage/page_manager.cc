@@ -47,6 +47,7 @@ Status PageManager::New(FileHandle file, size_t size, PageHandle& page){
 
 Status PageManager::Read(PageHandle page, char*& ret_ptr){
   if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
+  buzy_.Visit(page);
   if(pool_.pooling(page)){
     size_t size = page_[page].size;
     return pool_.Read(page, size, ret_ptr);
@@ -66,6 +67,7 @@ Status PageManager::Read(PageHandle page, char*& ret_ptr){
 }
 Status PageManager::Read(PageHandle page, size_t page_offset, size_t read_size, char*& ret_ptr){
   if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
+  buzy_.Visit(page);
   if(page_offset + read_size > page_[page].size)return Status::InvalidArgument("Read Out of Page");
   if(pool_.pooling(page)){
     pool_.Read(page, ret_ptr);
@@ -87,6 +89,7 @@ Status PageManager::Read(PageHandle page, size_t page_offset, size_t read_size, 
 
 Status PageManager::Write(PageHandle page, char* data_ptr){
   if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
+  buzy_.Visit(page);
   auto page_meta = page_[page];
   if(pool_.pooling(page)){
     char* pool_ptr = pool_.get_ptr(page);
@@ -105,7 +108,21 @@ Status PageManager::Write(PageHandle page, char* data_ptr){
   }
 }
 Status PageManager::Write(PageHandle page, size_t size, char* data_ptr){
-
+  if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
+  buzy_.Visit(page);
+  auto page_meta = page_[page];
+  if(pool_.pooling(page)){
+    char* pool_ptr = pool_.get_ptr(page);
+    memcpy(pool_ptr, data_ptr, page_meta.size);
+  }
+  else if(!pool_.full()){
+    char* pool_ptr;
+    if(!Read(page, pool_ptr))return Status::IOError("Reading File from Disk Failed");
+    memcpy(pool_ptr, data_ptr, page_meta.size);
+  }
+  else{
+    DirectWritePage(page, size, data_ptr);
+  }
   if(pool_.full()){
     FlushPage(page);
   }
@@ -115,11 +132,19 @@ Status PageManager::FlushPage(PageHandle page){
   if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
   if(pool_.pooling(page)){
     char* pool_ptr = pool_.get_ptr(page);
-    return DirectWritePage(page, pool_ptr);
+    auto status = DirectWritePage(page, pool_ptr);
+    if(!status.OK())return status;
+    return pool_.Free(page);
   }
   else{
     return Status::InvalidArgument("Cannot Find Page in Mem Pool");
   }
+}
+
+Status PageManager::FlushPage(void){
+  PageHandle last;
+  if(!buzy_.GetLast(last).OK())return Status::Corruption("Buzy List Corruption");
+  return FlushPage(last);
 }
 
 Status PageManager::DirectWritePage(PageHandle page, char* data_ptr){
@@ -127,6 +152,13 @@ Status PageManager::DirectWritePage(PageHandle page, char* data_ptr){
   PageHandle page_handle = page_[page];
   FileHandle file = page_handle.file;
   return file.Flush(page_handle.offset, data_ptr);
+}
+
+Status PageManager::DirectWritePage(PageHandle page, size_t size, char* data_ptr){
+  if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
+  PageHandle page_handle = page_[page];
+  FileHandle file = page_handle.file;
+  return file.Flush(page_handle.offset, size, data_ptr);
 }
 
 
