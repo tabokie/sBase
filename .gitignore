@@ -2,3 +2,4 @@
 *.exe
 *.gch
 *.archived
+*.o

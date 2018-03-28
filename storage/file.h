@@ -43,7 +43,7 @@ class WritableFile{
   virtual Status Open(void);
   virtual Status Close(void);
   inline Access access(void){return file_.access;}
-  inline const char* name(void){return file_.name;}
+  inline const char* name(void){return file_.filename;}
   inline const size_t size(void){return file_end_;}
 };
 

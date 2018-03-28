@@ -1,5 +1,10 @@
+#ifndef SBASE_STORAGE_PAGE_MANAGER_H_
+#define SBASE_STORAGE_PAGE_MANAGER_H_
+
 #include "status.h"
 #include "file.h"
+#include "mempool.hpp"
+#include "buzy_queue.hpp"
 
 #include <vector>
 #include <cassert>
@@ -16,11 +21,7 @@ struct PageMeta{
   size_t offset;
   size_t size;
   PageMeta(FileHandle f, size_t o, size_t s = -1):
-    file(f),offset(o),size(s){
-      if(size < 0){
-        size = file.block_size;
-      }
-    }
+    file(f),offset(o),size(s){ }
   PageMeta(PageMeta& that):file(that.file),offset(that.offset),size(that.size){ }
   ~PageMeta(){ }
 
@@ -31,7 +32,7 @@ struct PageMeta{
 class PageManager{
   vector<WritableFile> file_;
   vector<PageMeta> page_;
-  MemPool pool_;
+  MemPool<PageHandle> pool_;
   BuzyQueue<size_t> buzy_;
 
  public:
@@ -59,3 +60,4 @@ class PageManager{
 
 
 
+#endif // SBASE_STORAGE_PAGE_MANAGER_H_

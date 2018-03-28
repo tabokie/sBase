@@ -1,5 +1,5 @@
-#ifndef A2_HASH_HPP_
-#define A2_HASH_HPP_
+#ifndef SBASE_STORAGE_HASH_HPP_
+#define SBASE_STORAGE_HASH_HPP_
 
 #include <memory>
 #include <string>
@@ -179,4 +179,4 @@ class HashMap{
 
 }; // class Hash
 
-#endif // A2_HASH_HPP_
+#endif // SBASE_STORAGE_HASH_HPP_

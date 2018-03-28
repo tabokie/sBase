@@ -7,10 +7,10 @@
 
 class Tabler : public NoCopy{
  private:
- 	PageManager* page_;
- 	BPlusCursor* table_idx_;
- 	BFlowCursor* table_;
- 	vector<BCursor*> idx_;
+  PageManager* page_;
+  BPlusCursor* table_idx_;
+  BFlowCursor* table_;
+  vector<BCursor*> idx_;
  public:
   Tabler();
   ~Tabler();
@@ -19,28 +19,35 @@ class Tabler : public NoCopy{
   Status Free(void);
 }
 
+// primary
+Status Tabler::Get(Slice key){
+  table_idx_->Reset()
+  while(table_idx_->Descend(key))
+  table_->Get(table_idx_->no);
+}
+
 class BPlusCursor{
  private:
- 	PageHandle* page_;
- 	vector<Slice>;
- 	vector<PageHandle>;
+  PageHandle* page_;
+  vector<Slice>;
+  vector<PageHandle>;
  public:
-	FileMeta
-	Status Fetch();
-	Status Split();
-	Status Insert();
-	Status Descend();
-	Status Climb();
-	Status Shift();
-	PageHandle& current(void);
+  FileMeta
+  Status Fetch();
+  Status Split();
+  Status Insert();
+  Status Descend();
+  Status Climb();
+  Status Shift();
+  PageHandle& current(void);
  private:
 
 }
 
 template <typename _ET>
 class BCursor{
-	Status 
+  Status 
 }
 class BFlowCursor{
-	
+
 }

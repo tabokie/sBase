@@ -1,11 +1,15 @@
+#ifndef SBASE_STORAGE_BUZY_QUEUE_HPP_
+#define SBASE_STORAGE_BUZY_QUEUE_HPP_
 
-#include "page_manager.h"
+
 #include "hash.hpp"
+#include "status.h"
 #include <memory>
+#include <iostream>
 
 namespace sbase{
 
-size_t kBuzyQueueSize = kInitBlock;
+size_t kBuzyQueueSize = 10;
 
 template <class _ET>
 class BuzyQueue{
@@ -13,69 +17,71 @@ class BuzyQueue{
   using ElementType = _ET;
 
   size_t size_;
-  struct Wrapper_{
-    shared_ptr<Wrapper_> pri;
-    shared_ptr<Wrapper_> next;
-    ElementType element;
-    Wrapper_(ElementType e):pri(nullptr),next(nullptr),element(e){ }
-    ~Wrapper_(){ }
-  };
-  using ListNodeType = Wrapper_;
-  using ListNodePtr = shared_ptr<Wrapper_>;
-  ListNodePtr head_, tail_;
-
-  HashMap<ElementType, ListNodePtr> map_;
+  size_t cur_;
+  ElementType* deque_;
+  size_t head_;
+  size_t tail_;
 
  public:
 
-  BuzyQueue(size_t initsize = kBuzyQueueSize):size_(initsize){ }
-  ~BuzyQueue(){ }
-  Status Visit(PageHandle page){
-    ListNodePtr ptr = nullptr;
-    if(map_.DeleteOnGet(page, ptr)){
-      if(!ptr)return Status::Corruption("Cannot Get Element from Map");
-      // make tail
-      ListNodePtr pri  = ptr->pri;
-      ListNodePtr next = ptr->next;
-      assert((ptr==tail_) == (!next)); // equivalence test
-      if(ptr == tail_){
-        tail_ = pri;
-      }
-      if(pri)pri->next = next;
-      if(next)next->pri = pri;
-      // make head
-      head_->pri = ptr;
-      ptr->next = head_;
-      head_ = ptr;
-      return Status::OK();
-    }
-    else{
-      ptr = make_shared<Wrapper_>(page);
-      head_->pri = ptr;
-      ptr->next = head_;
-      head_ = ptr;
-      if(!map_.Insert(page, ptr))return Status::Corruption("Insert to Buzy Hash Failed");
-      return Status::OK();
-    }
+  BuzyQueue(size_t initsize = kBuzyQueueSize):size_(initsize),cur_(0){
+    deque_ = new ElementType[size_];
+    head_ = 0;
+    tail_ = size_-1;
   }
-  Status Last(PageHandle& ret){ // delete on get
-    if(tail_ == nullptr){
-      return Status::Corruption("Empty Tail Ptr");
+  ~BuzyQueue(){ }
+  Status Visit(ElementType idx){
+    // Plot();
+    if(cur_<=0){
+      head_ = 0;
+      tail_ = 0;
+      deque_[0] = idx;
+      cur_ = 1;
+      return Status::OK();
     }
-    ret = tail_->element;
-    assert((!tail_->pri) == (tail_==head_));
-    if(tail_->pri)tail_->pri->next = nullptr;
-    else head_ = nullptr;
-    tail_ = tail_->pri;
+    size_t tail = (tail_ >= head_) ? tail_ : tail_+size_;
+    for(size_t cur = head_; cur <= tail; cur++){
+      if(deque_[cur%size_] == idx){
+        deque_[cur%size_] = reinterpret_cast<_ET>(-1); // delete
+        head_ = (head_ < 1) ? size_-1 : head_-1;
+        deque_[head_] = idx;
+        cur_++;
+        if(cur_ >= size_)tail_ = (tail_ < 1) ? size_-1 : tail_-1;
+        return Status::OK();
+      }
+    }
+    head_ = (head_ < 1) ? size_-1 : head_-1;
+    deque_[head_] = idx;
+    cur_++;
+    if(cur_ >= size_)tail_ = (tail_ < 1) ? size_-1 : tail_-1;
+    return Status::OK();
+  }
+  Status Last(ElementType& ret){ // delete on get
+    while(deque_[tail_] == reinterpret_cast<_ET>(-1) && cur_ > 0 ){
+      tail_ = (tail_ < 1) ? size_-1 : tail_-1;
+      cur_--;
+    }
+    if(cur_ <= 0)return Status::Corruption("Empty Buzy Queue");
+    ret = deque_[tail_];
+    tail_ = (tail_ < 1) ? size_-1 : tail_-1;
     return Status::OK();
   }
   // for debug
-  Status First(PageHandle& ret){
-    if(!head_)return Status::Corruption("Empty Head Ptr");
-    ret = head_->element;
+  Status First(ElementType& ret){
+    if(cur_<=0)return Status::Corruption("Empty Buzy Queue");
+    ret = deque_[head_];
     return Status::OK();
   }
+  void Plot(void){
+    int tail = (tail_ >= head_) ? tail_ : tail_+size_;
+    for(int i = head_; i <= tail; i++){
+      std::cout << '[' << deque_[i%size_] <<']';
+    }
+    std::cout << std::endl << std::flush;
+  }
+
+};
 
 }
 
-}
+#endif // SBASE_STORAGE_BUZY_QUEUE_HPP_
