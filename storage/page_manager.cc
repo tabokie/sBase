@@ -22,7 +22,12 @@ Status PageManager::NewFile(FileMeta file, FileHandle& handle){
 }
 Status PageManager::CloseFile(FileHandle file){
   if(file < 0 || file >= file_.size())return Status::InvalidArgument("File Handle Flow");
-  auto f = vector[file];
+  for(FileHandle i = 0; i < page_.size(); i++){
+    if(page_[i].file == file){
+      FlushPage(i); // !assert(OK())
+    }
+  }
+  auto f = vector[file]
   return f.Close();
 }
 
@@ -130,15 +135,13 @@ Status PageManager::Write(PageHandle page, size_t size, char* data_ptr){
 
 Status PageManager::FlushPage(PageHandle page){
   if(page < 0 || page >= page_.size())return Status::InvalidArgument("Page Handle Flow");
-  if(pool_.pooling(page)){
-    char* pool_ptr = pool_.get_ptr(page);
+  char* pool_ptr = pool_.get_ptr(page);
+  if(pool_ptr){
     auto status = DirectWritePage(page, pool_ptr);
     if(!status.OK())return status;
-    return pool_.Free(page);
+    return pool_.Free(page);  
   }
-  else{
-    return Status::InvalidArgument("Cannot Find Page in Mem Pool");
-  }
+  return Status::InvalidArgument("Cannot Find Page in Mem Pool");
 }
 
 Status PageManager::FlushPage(void){

@@ -49,12 +49,14 @@ class HashMap{
     ~Wrapper_(){ } 
   };
   using PairPtr = shared_ptr<Wrapper_>;
+  using PairType = Wrapper_;
   size_t size_;
+  size_t occupied_;
   PairPtr* table_;
   
  public:  
   HashMap(size_t size = 50)
-    :size_(size){ 
+    :size_(size),occupied_(0){ 
     table_ = new PairPtr[size_];
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
   }
@@ -62,13 +64,13 @@ class HashMap{
 
   // insert element
   bool Insert(KeyType key, ElementType element){
-    PairPtr p = make_shared<PairPtr>(key, element);
+    PairPtr p = make_shared<PairType>(key, element);
     return Insert(key, p);
   }
 
   // 
   bool Get(KeyType key, ElementType& element){
-    unsigned int hash_val  = hash<KeyType>{}(key);
+    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
     // quadratic proding
@@ -98,6 +100,7 @@ class HashMap{
     }while(cur != hash_val);
     if(table_[cur] && !table_[cur]->deleted && table_[cur]->key==key){
       table_[cur]->deleted = true;
+      occupied_ --;
       return true;
     }
     return false;
@@ -117,6 +120,7 @@ class HashMap{
     if(table_[cur] && !table_[cur]->deleted && table_[cur]->key==key){
       table_[cur]->deleted = true;
       element = table_[cur]->element;
+      occupied_ --;
       return true;
     }
     return false;
@@ -124,8 +128,11 @@ class HashMap{
 
   bool Clear(void){
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
-      size_ = 0;
+    occupied_ = 0;
   }
+
+  size_t occupied(void){return occupied_;}
+  size_t size(void){return size_;}
 
  private:
   bool Insert(KeyType key, PairPtr p){
@@ -147,6 +154,7 @@ class HashMap{
     // vacant
     if( !table_[cur] || table_[cur]->deleted ){
       table_[cur] = p;
+      occupied_ ++;
       return true;
     }
     // duplicate
@@ -160,6 +168,7 @@ class HashMap{
     for(int i =0; i< size_; i++)new_table[i] = nullptr;
     PairPtr* old_table = table_;
     table_ = new_table;
+    occupied_ = 0;
     for(int i = 0; i < old_size; i++){
       if(old_table[i])
         Insert(old_table[i]->key, old_table[i]);

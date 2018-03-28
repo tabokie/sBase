@@ -34,9 +34,8 @@ class MemPool{
     return pool_.Get(page, res);
   }
   inline char* get_ptr(PageHandle page){
-    size_t res;
-    pool_.Get(page, res);
-    if(res >= blocks_.size()) return nullptr;
+    size_t res = blocks_.size();
+    if(!pool_.Get(page, res) || res >= blocks_.size()) return nullptr;
     return blocks_[res];
   }
   inline bool full(void){

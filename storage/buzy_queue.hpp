@@ -3,6 +3,10 @@
 #include "hash.hpp"
 #include <memory>
 
+namespace sbase{
+
+size_t kBuzyQueueSize = kInitBlock;
+
 template <class _ET>
 class BuzyQueue{
 
@@ -16,6 +20,7 @@ class BuzyQueue{
     Wrapper_(ElementType e):pri(nullptr),next(nullptr),element(e){ }
     ~Wrapper_(){ }
   };
+  using ListNodeType = Wrapper_;
   using ListNodePtr = shared_ptr<Wrapper_>;
   ListNodePtr head_, tail_;
 
@@ -64,5 +69,13 @@ class BuzyQueue{
     tail_ = tail_->pri;
     return Status::OK();
   }
+  // for debug
+  Status First(PageHandle& ret){
+    if(!head_)return Status::Corruption("Empty Head Ptr");
+    ret = head_->element;
+    return Status::OK();
+  }
+
+}
 
 }
