@@ -1,11 +1,10 @@
-#include "status.h"
 #include "file.h"
-
-#include <string>
 
 namespace sbase{
 
 #if defined(__WIN32) || defined(__WIN64)
+
+// Base Type :: Writabel File //
 
 Status WritableFile::Open(void){
   fhandle_ = CreateFile(file_.filename, 
@@ -15,6 +14,7 @@ Status WritableFile::Open(void){
     OPEN_ALWAYS, 
     FILE_ATTRIBUTE_NORMAL, 
     NULL); // template file handle
+  if(fhandle_ == INVALID_HANDLE_VALUE)return Status::IOError("Invalid File Handle");
   file_end_ = GetFileSize(fhandle_, NULL);
   return Status::OK();
 }
@@ -24,7 +24,21 @@ Status WritableFile::Close(void){
   return Status::OK();
 }
 
+Status WritableFile::Delete(void){
+  if(!DeleteFile(file_.filename))return Status::IOError("Cannot Delete File");
+  return Status::OK();
+}
+
+// Derived Type :: Sequential File //
+
 Status SequentialFile::Read(size_t offset, char* alloc_ptr) {
+  return Read_(offset, alloc_ptr, file_.block_size);
+}
+Status SequentialFile::Read(size_t offset, char* alloc_ptr, size_t size) {
+  if(size > file_.block_size)size = file_.block_size;
+  return Read_(offset, alloc_ptr, size);
+}
+inline Status SequentialFile::Read_(size_t offset, char* alloc_ptr, size_t size){
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -34,13 +48,20 @@ Status SequentialFile::Read(size_t offset, char* alloc_ptr) {
     && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
   bool rfRes = ReadFile(fhandle_, 
     alloc_ptr, 
-    file_.block_size, 
+    size, 
     NULL, // num of bytes read
     NULL); // overlapped structure
   if(!rfRes)return Status::IOError("Read File Failed");
   return Status::OK();
 }
-Status SequentialFile::Flush(size_t offset, char* data_ptr) {
+Status SequentialFile::Flush(size_t offset, char* data_ptr){
+  return Flush_(offset, data_ptr, file_.block_size); 
+}
+Status SequentialFile::Flush(size_t offset, char* data_ptr, size_t size) {
+  if(size > file_.block_size)size = file_.block_size;
+  return Flush_(offset, data_ptr, size);
+}
+inline Status SequentialFile::Flush_(size_t offset, char* data_ptr, size_t size) {
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -50,12 +71,13 @@ Status SequentialFile::Flush(size_t offset, char* data_ptr) {
     && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
   bool rfRes = WriteFile(fhandle_, 
     data_ptr, 
-    file_.block_size, 
+    size, 
     NULL,  // num of bytes read
     NULL); // overlapped structure
   if(!rfRes)return Status::IOError("Write File Failed");
   return Status::OK();
 }
+
 Status SequentialFile::Append(size_t offset) {
   DWORD dwPtr = SetFilePointer(fhandle_, \
     offset+file_.block_size, \
@@ -70,20 +92,16 @@ Status SequentialFile::Append(size_t offset) {
   return Status::OK();
 }
 
+// Derived Type :: RandomAccessFile //
 
-Status RandomAccessFile::Append(size_t offset, size_t size){
-  DWORD dwPtr = SetFilePointer(fhandle_, \
-    offset+file_.block_size, \
-    NULL, \
-    0); // 0 for starting from beginning
-  DWORD dwError;
-  if(dwPtr == INVALID_SET_FILE_POINTER \
-    && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
-  SetEndOfFile(fhandle_);
-  file_end_ = offset + size;
-  return Status::OK();
+Status RandomAccessFile::Read(size_t offset, char* alloc_ptr) {
+  return Read_(offset, alloc_ptr, file_.block_size);
 }
-Status RandomAccessFile::Read(size_t offset, size_t size, char* alloc_ptr) {
+Status RandomAccessFile::Read(size_t offset, char* alloc_ptr, size_t size) {
+  if(size > file_.block_size)size = file_.block_size;
+  return Read_(offset, alloc_ptr, size);
+}
+Status RandomAccessFile::Read_(size_t offset, char* alloc_ptr, size_t size) {
   mhandle_ = CreateFileMapping(fhandle_, 
     NULL,  // security
     PAGE_READWRITE, 
@@ -102,7 +120,14 @@ Status RandomAccessFile::Read(size_t offset, size_t size, char* alloc_ptr) {
   if(!CloseHandle(mhandle_))return Status::IOError("Map Handle Close Failed");
   return Status::OK();
 }
-Status RandomAccessFile::Flush(size_t offset, size_t size, char* data_ptr) {
+Status RandomAccessFile::Flush(size_t offset, char* data_ptr){
+  return Flush_(offset, data_ptr, file_.block_size); 
+}
+Status RandomAccessFile::Flush(size_t offset, char* data_ptr, size_t size) {
+  if(size > file_.block_size)size = file_.block_size;
+  return Flush_(offset, data_ptr, size);
+}
+Status RandomAccessFile::Flush_(size_t offset, char* data_ptr, size_t size) {
   mhandle_ = CreateFileMapping(fhandle_, 
     NULL,  // security
     PAGE_READWRITE, 
@@ -119,6 +144,18 @@ Status RandomAccessFile::Flush(size_t offset, size_t size, char* data_ptr) {
   memcpy(map_ptr_, data_ptr, size);
   if(!UnmapViewOfFile(map_ptr_))return Status::IOError("Map View Close Failed");
   if(!CloseHandle(mhandle_))return Status::IOError("Map Handle Close Failed");
+  return Status::OK();
+}
+Status RandomAccessFile::Append(size_t offset){
+  DWORD dwPtr = SetFilePointer(fhandle_, \
+    offset+file_.block_size, \
+    NULL, \
+    0); // 0 for starting from beginning
+  DWORD dwError;
+  if(dwPtr == INVALID_SET_FILE_POINTER \
+    && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
+  SetEndOfFile(fhandle_);
+  file_end_ = offset + file_.block_size;
   return Status::OK();
 }
 

@@ -13,7 +13,7 @@ namespace sbase {
 using std::vector;
 using std::queue;
 
-const size_t kBlockSize = 4000;
+const size_t kMempoolDefaultBlockSize = 4096;
 const size_t kFullSize = 2;
 const size_t kInitBlock = 10;
 
@@ -24,9 +24,10 @@ class MemPool{
   HashMap<HandleType, size_t> pool_;
   vector<char*> blocks_;
   queue<size_t> free_;
+  size_t block_size_;
 
  public:
-  MemPool(){AllocBlocks(kInitBlock);};
+  MemPool(size_t block = kMempoolDefaultBlockSize):block_size_(block){AllocBlocks(kInitBlock);};
   ~MemPool(){
     for(size_t i = 0; i < blocks_.size(); i++){
       delete [] blocks_[i];
@@ -71,7 +72,7 @@ class MemPool{
  private:
   inline char* AllocNewBlock(void){
     assert(free_.empty());
-    char* new_ptr = new char[kBlockSize];
+    char* new_ptr = new char[block_size_];
     size_t new_page = blocks_.size();
     blocks_.push_back(new_ptr);
     free_.push(new_page);
@@ -79,7 +80,7 @@ class MemPool{
   }
   inline bool AllocBlocks(size_t size){
     for(int i = 0; i < size; i++){
-      blocks_.push_back(new char[kBlockSize]);
+      blocks_.push_back(new char[block_size_]);
       free_.push(i);
     }
     return true;

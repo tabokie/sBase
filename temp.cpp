@@ -1,10 +1,14 @@
 #include <iostream>
+#include <functional>
 
 using namespace std;
 
+template <typename T>
+int func(int a){return a;}
+
 
 int main(void){
-
+INTEGER.Make<int>();
 	double a = 1.8;
 	// char* conv = static_cast<char*>(&a);
 	// string 

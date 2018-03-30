@@ -9,7 +9,7 @@
 
 namespace sbase{
 
-size_t kBuzyQueueSize = 10;
+static size_t kBuzyQueueSize = 10; // link
 
 template <class _ET>
 class BuzyQueue{
@@ -42,7 +42,7 @@ class BuzyQueue{
     size_t tail = (tail_ >= head_) ? tail_ : tail_+size_;
     for(size_t cur = head_; cur <= tail; cur++){
       if(deque_[cur%size_] == idx){
-        deque_[cur%size_] = reinterpret_cast<_ET>(-1); // delete
+        deque_[cur%size_] = static_cast<_ET>(1); // delete
         head_ = (head_ < 1) ? size_-1 : head_-1;
         deque_[head_] = idx;
         cur_++;
@@ -57,7 +57,7 @@ class BuzyQueue{
     return Status::OK();
   }
   Status Last(ElementType& ret){ // delete on get
-    while(deque_[tail_] == reinterpret_cast<_ET>(-1) && cur_ > 0 ){
+    while(deque_[tail_] == static_cast<_ET>(1) && cur_ > 0 ){
       tail_ = (tail_ < 1) ? size_-1 : tail_-1;
       cur_--;
     }

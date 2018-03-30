@@ -1,7 +1,14 @@
 #ifndef SBASE_STORAGE_FILE_H_
 #define SBASE_STORAGE_FILE_H_
 
+#include "status.h"
+#include <string>
+#include <iostream>
+
+
 namespace sbase{
+
+const size_t kBlockSize = 4096; // 4 kb
 
 enum Access {
   kSequential = 0,
@@ -14,7 +21,11 @@ struct FileMeta{
   Access access;
 
   FileMeta(const char* name, size_t block, Access acs):
-    filename(name),block_size(block),access(acs){ }
+    filename(name),block_size(block),access(acs){ 
+      if(access == kSequential){
+        block_size = kBlockSize;
+      }
+  }
   // copy allowed
   FileMeta(const FileMeta& that){
     filename = that.filename;
@@ -38,13 +49,19 @@ class WritableFile{
   OsFileHandle fhandle_;
   size_t file_end_;
  public:
-  WritableFile(FileMeta file):file_(file){ }
+  WritableFile(FileMeta file):file_(file),file_end_(0){ }
   virtual ~WritableFile(){ };
   virtual Status Open(void);
   virtual Status Close(void);
+  virtual Status Delete(void);
+  virtual Status Read(size_t offset, char* alloc_ptr) = 0;
+  virtual Status Read(size_t offset, char* alloc_ptr, size_t size) = 0;
+  virtual Status Flush(size_t offset, char* data_ptr) = 0;
+  virtual Status Flush(size_t offset, char* data_ptr, size_t size) = 0;
+  virtual Status Append(size_t offset) = 0 ;
   inline Access access(void){return file_.access;}
   inline const char* name(void){return file_.filename;}
-  inline const size_t size(void){return file_end_;}
+  inline size_t size(void){return file_end_;}
 };
 
 class SequentialFile : public WritableFile{
@@ -52,8 +69,13 @@ class SequentialFile : public WritableFile{
   SequentialFile(FileMeta file):WritableFile(file){ }
   ~SequentialFile(){ }
   Status Read(size_t offset, char* alloc_ptr);
+  Status Read(size_t offset, char* alloc_ptr, size_t size);
   Status Flush(size_t offset, char* data_ptr);
+  Status Flush(size_t offset, char* data_ptr, size_t size);
   Status Append(size_t offset);
+ private:
+  Status Read_(size_t offset, char* alloc, size_t size);
+  Status Flush_(size_t offset, char* alloc, size_t size);
 };
 
 class RandomAccessFile : public WritableFile{
@@ -61,9 +83,15 @@ class RandomAccessFile : public WritableFile{
   OsMapHandle mhandle_;
  public:
   RandomAccessFile(FileMeta file):WritableFile(file){ }
-  Status Read(size_t offset, size_t size, char* alloc_ptr);
-  Status Flush(size_t offset, size_t size, char* data_ptr);
-  Status Append(size_t offset, size_t size);
+  ~RandomAccessFile(){ }
+  Status Read(size_t offset, char* alloc_ptr);
+  Status Read(size_t offset, char* alloc_ptr, size_t size);
+  Status Flush(size_t offset, char* data_ptr, size_t size);
+  Status Flush(size_t offset, char* data_ptr);
+  Status Append(size_t offset);
+ private:
+  Status Read_(size_t offset, char* alloc, size_t size);
+  Status Flush_(size_t offset, char* alloc, size_t size);
 };
 
 #endif // __WINXX
