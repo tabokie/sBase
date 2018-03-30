@@ -4,6 +4,7 @@
 #include "storage\status.h"
 #include "utility.hpp"
 #include <functional>
+#include <iostream>
 
 using namespace std;
 
@@ -30,40 +31,51 @@ namespace sbase{
 //   table_->Get(table_idx_->no);
 // }
 
+// Page Layout :: [1byte size][x'b key | 4byte no | 4byte ptr(no)]
 class BPlusCursor{
  private:
   PageManager* page_;
   Fragment key_; // store data, as base type template
-  PageHandle cur_page_;
+  PageHandle page_no_;
+  char* page_data_;
  public:
-  FileMeta
-  Status Fetch();
-  Status Split();
-  Status Insert();
-  Status Descend();
-  Status Climb();
-  Status Shift();
-  PageHandle& current(void);
+  BPlusCursor(PageManager* page, Type* type):page_(page), page_data_(nullptr), key_(type){}
+  ~BPlusCursor(){ }
+  inline void MoveTo(PageHandle phandle){page_no_ = phandle; page_data_ = nullptr; return;}
+  Status Descend(char* key);
+  // Accessors
+  PageHandle current(void){return page_no_;}
  private:
-}
+};
 
 Status BPlusCursor::Descend(char* key){
+  // read page data
+  if(!page_data_)cout << page_->Read(page_no_, page_data_).ToString() << endl;
+  char* cur_data = page_data_;
+  // make fragment
   key >> key_;
   Fragment cur(key_);
-  size_t offset = key_.len + kPageHandleWid;
-  size_t no = 0;
-  char* page;
-  page_->Read(cur_page_, page);
-  PageSizeType size = *(reinterpret_cast<PageSizeType*>(page));
-  page+= kPageSizeWid;
-  while(no < size){
-    page = page + no*offset;
-    no++;
-    page >> cur;
+  // get offset and size
+  size_t offset = key_.length() + kPageHandleWid*2;
+  size_t cur_no = 0;
+  PageSizeType size = *(reinterpret_cast<PageSizeType*>(cur_data));
+  // begin searching
+  cur_data += kPageSizeWid;
+  while(cur_no < size){
+    cur_no ++;
+    cur_data >> cur;
+
     if(cur == key_){
-      cur_page_ = *(reinterpret_cast<PageHandle*>(page));
+      page_no_ = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()));
+      page_data_ = nullptr;
       break;
     }
+    else if(cur < key_){
+      page_no_ = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()+kPageHandleWid));
+      page_data_ = nullptr;
+    }
+    else break;
+    cur_data += offset;
   }
   return Status::OK();
 }

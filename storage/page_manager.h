@@ -16,10 +16,10 @@ namespace sbase{
 using std::vector;
 
 typedef uint8_t FileHandle;
-const size_t kFileHandleWid = 2 ;
+const size_t kFileHandleWid = 1 ;
 typedef uint16_t PageHandle;
-const size_t kPageHandleWid = 4;
-typedef char PageSizeType;
+const size_t kPageHandleWid = 2;
+typedef unsigned char PageSizeType;
 const size_t kPageSizeWid = 1;
 
 
@@ -33,8 +33,11 @@ struct PageMeta{
 };
 
 // unique page handle & file handle
+// class FrontMock;
 
 class PageManager{
+public:
+
   using FilePtr = shared_ptr<WritableFile>;
 
   vector<FilePtr> file_;

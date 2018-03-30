@@ -125,6 +125,10 @@ class Fragment{
     if(!(*meta_ == *(that.meta_)))return false;
     return meta_->equal(data_, that.data_);
   }
+  bool operator<(Fragment& that) const{
+    if(!(*meta_ == *(that.meta_)))return false;
+    return meta_->less(data_, that.data_);
+  }
   // input
   friend istream & operator>>(istream &is, Fragment& frag){
     if(!frag.data_)frag.data_ = new char[frag.meta_->length()];
