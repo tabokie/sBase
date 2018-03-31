@@ -43,40 +43,55 @@ class BPlusCursor{
   ~BPlusCursor(){ }
   inline void MoveTo(PageHandle phandle){page_no_ = phandle; page_data_ = nullptr; return;}
   Status Descend(char* key);
+  Status Find(char* key, char*&, PageHandle&);
   // Accessors
   PageHandle current(void){return page_no_;}
  private:
 };
 
 Status BPlusCursor::Descend(char* key){
-  // read page data
-  if(!page_data_)cout << page_->Read(page_no_, page_data_).ToString() << endl;
-  char* cur_data = page_data_;
-  // make fragment
+  char* key_ptr = nullptr;
+  PageHandle page_ptr;
+  Find(key, key_ptr, page_ptr );
+  page_no_ = page_ptr;
+  page_data_ = nullptr; // safe to mempool ?
+  return Status::OK();
+}
+Status BPlusCursor::Find(char* key, char*& key_ptr, PageHandle& page_ptr){
+  if(!page_data_ && !page_->Read(page_no_, page_data_).ok())return Status::IOError("Cannot Fetch Page");
+  // make key
   key >> key_;
   Fragment cur(key_);
   // get offset and size
+  char* cur_data = page_data_;
   size_t offset = key_.length() + kPageHandleWid*2;
   size_t cur_no = 0;
   PageSizeType size = *(reinterpret_cast<PageSizeType*>(cur_data));
-  // begin searching
-  cur_data += kPageSizeWid;
-  while(cur_no < size){
-    cur_no ++;
-    cur_data >> cur;
-
-    if(cur == key_){
-      page_no_ = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()));
-      page_data_ = nullptr;
-      break;
-    }
-    else if(cur < key_){
-      page_no_ = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()+kPageHandleWid));
-      page_data_ = nullptr;
-    }
-    else break;
-    cur_data += offset;
+  PageHandle lower_bound = *(reinterpret_cast<PageHandle*>(cur_data+kPageSizeWid));
+  cur_data = page_data_+kPageHandleWid+kPageSizeWid;
+  cur_data >> cur ;
+  if(key_ < cur){ // match lower bound
+    key_ptr = nullptr;
+    page_ptr = lower_bound;
+    return Status::OK();
   }
+  // binary searching
+  size_t hi = size, mid, lo = 0;
+  while(hi - lo >= 2){
+    mid = lo+(hi-lo)/2;
+    cur_data = page_data_+kPageSizeWid+kPageHandleWid+offset*mid;
+    cur_data >> cur;
+    if(cur == key_){
+      key_ptr = cur_data;
+      page_ptr = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()));
+      return Status::OK();
+    }
+    else if(cur < key_)lo = mid;
+    else hi = mid;
+  }
+  cur_data = page_data_+kPageSizeWid+kPageHandleWid+offset*lo;
+  key_ptr = nullptr;
+  page_ptr = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()+kPageHandleWid));
   return Status::OK();
 }
 
@@ -85,7 +100,16 @@ Status BPlusCursor::Descend(char* key){
 //   Status 
 // }
 /*
+bpluscursor
+modify(key, new_key)
+find(key)
 
+bcursor
+modify
+find 
+shift
+
+bflowcursor **
 if(not slot A empty){
   memmove
 }

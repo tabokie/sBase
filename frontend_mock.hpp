@@ -33,16 +33,14 @@ class FrontMock{
     pager_.page_.push_back(meta);
     pager_.pool_.New(0,4096,pool_);
     memset(pool_, 0, 4096);
-    pool_[0] = 4;
-    int key = 0;
-    int match = key_.length();
-    int ptr = key_.length()+2;
+    pool_[0] = 20; // page size
+    pool_[1] = 120; // lower bound
     int offset = 4+key_.length();
-    int cur = 1;
+    int cur = 3;
     for(int i = 0; i < pool_[0]; i++){
-      pool_[cur + key] = (i);
-      pool_[cur + match] = (2*i);
-      pool_[cur + ptr] = (2*i+1);
+      pool_[cur] = (i+1); // key
+      pool_[cur + key_.length()] = (2*i+2); // match ptr
+      pool_[cur + key_.length() + 2] = (2*i+3); // bigger ptr
       cur += offset;
     }
   } 
