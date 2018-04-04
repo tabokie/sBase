@@ -33,7 +33,7 @@ TEST(PageManagerTest, WriteReadFileTest){
 	PageHandle page;
 	Status status;
 
-	status = pager.New(file, page);	
+	status = pager.New(file,kBflowTablePage, page);	
 	if(!status.ok()){
 		cout << status.ToString() << endl << flush;
 		exit(0);

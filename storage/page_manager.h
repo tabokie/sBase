@@ -22,13 +22,23 @@ const size_t kPageHandleWid = 2;
 typedef unsigned char PageSizeType;
 const size_t kPageSizeWid = 1;
 
+enum PageType{
+  kBflowTablePage = 0;
+  kBplusIndexPage = 1;
+  kBIndexPage = 2;
+  kInvalidPage = 3;
+};
+
 
 struct PageMeta{
   FileHandle file;
+  PageType type;
   size_t offset;
   size_t size;
-  PageMeta(FileHandle f, size_t o, size_t s = 0):file(f),offset(o),size(s){ }
-  PageMeta(const PageMeta& that):file(that.file),offset(that.offset),size(that.size){ }
+  PageMeta(FileHandle f, PageType t, size_t o, size_t s = 0):
+  file(f),offset(o),size(s),type(t) { }
+  PageMeta(const PageMeta& that):
+  file(that.file),type(that.type),offset(that.offset),size(that.size){ }
   ~PageMeta(){ }
 };
 
@@ -60,6 +70,11 @@ public:
   Status Write(PageHandle page, char* data_ptr);
   Status Write(PageHandle page, char* data_ptr, size_t size);
   Status Flush(PageHandle page){return FlushPage(page);}
+  // page accessor
+  inline PageType type(PageHandle page){
+    if(page >= page_.size())return kInvalidPage;
+    else return page_[page].type;
+  }
  private:
   // mem pool interface
   Status FlushPage(PageHandle page);

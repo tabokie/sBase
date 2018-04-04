@@ -69,7 +69,7 @@ class Status {
 	// Returns the string "OK" for success.
 	std::string ToString() const;
 
- private:
+ protected:
 	// OK status has a NULL state_.  Otherwise, state_ is a new[] array
 	// of the following form:
 	//    state_[0..3] == length of message
