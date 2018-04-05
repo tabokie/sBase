@@ -105,8 +105,9 @@ class Fragment{
  public:
   Fragment(const Type& meta):meta_(&meta),data_(nullptr){ }
   Fragment(const Type* meta):meta_(meta),data_(nullptr){ }
-  Fragment(const Fragment& that): data_(nullptr){
+  Fragment(const Fragment& that){
     meta_ = that.meta_;
+    memcpy(data_, that.data_, that.length());
   }
   ~Fragment(){ delete [] data_; }
   static Fragment NilFrag(void){
@@ -129,6 +130,7 @@ class Fragment{
     if(!(*meta_ == *(that.meta_)))return false;
     return meta_->less(data_, that.data_);
   }
+  // immutable char ptr
   // input
   friend istream & operator>>(istream &is, Fragment& frag){
     if(!frag.data_)frag.data_ = new char[frag.meta_->length()];
@@ -153,13 +155,18 @@ class Fragment{
 
 class Slice{
   vector<Fragment> frag_;
-  vector<string> name_;
+  // vector<string> name_;
  public:
   Slice() = default;
+  Slice(const Slice& that){
+    for(auto &frag :that.frag_){
+      frag_.push_back(frag);
+    }
+  }
   ~Slice(){ }
   void AddFrag(string name, Fragment frag){
     frag_.push_back(frag);
-    name_.push_back(name);
+    // name_.push_back(name);
   }
   size_t length(void){
     size_t ret = 0;
@@ -168,6 +175,7 @@ class Slice{
     }
     return ret;
   }
+  // immutable char ptr
   // input
   friend char* operator>>(char* input, Slice& slice){
     assert(input);

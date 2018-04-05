@@ -170,7 +170,7 @@ class HashMap{
     table_ = new_table;
     occupied_ = 0;
     for(int i = 0; i < old_size; i++){
-      if(old_table[i])
+      if(old_table[i] && !old_table[i]->deleted)
         Insert(old_table[i]->key, old_table[i]);
     }
     delete [] old_table;

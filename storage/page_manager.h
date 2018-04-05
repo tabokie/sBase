@@ -23,10 +23,10 @@ typedef unsigned char PageSizeType;
 const size_t kPageSizeWid = 1;
 
 enum PageType{
-  kBflowTablePage = 0;
-  kBplusIndexPage = 1;
-  kBIndexPage = 2;
-  kInvalidPage = 3;
+  kBFlowTablePage = 0,
+  kBPlusIndexPage = 1,
+  kBIndexPage = 2,
+  kInvalidPage = 3
 };
 
 
