@@ -1,0 +1,25 @@
+Done:
+	✔	Basic Util: Hash, Dict, File, BuzyQueue @done (18-04-07 20:33)
+	✔	MemPool @done (18-04-07 20:33)
+	✔	PageManager @done (18-04-07 20:35)
+In Process:
+	☐	Slice, Fragment, FieldMeta
+		☐	Composite fragments to fragment
+		☐	Fragment min/max attr
+		☐	Decent data packer ?? -> no char anymore
+	☐	Global Meta
+		☐	table info
+	☐	Tree Cursor
+		☐	B Tree
+		☐	seperate control
+		☐	Test
+	☐	TreeManager
+		☐	Find, Find by Range
+		☐	Insert
+		☐	Update: Controling? -> add change field in slice
+		☐	Maintain: with update
+	☐	Lock
+	☐	Front End
+		☐	Scanner
+			☐	Syntax rule: control block
+		☐	Parser

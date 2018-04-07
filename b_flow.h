@@ -32,28 +32,47 @@ namespace sbase{
 //   table_->Get(table_idx_->no);
 // }
 
-// class Treer{
+class Treer{
 
-//   Status Insert(char* key){
-//     page1,page2;
-//     while(true){
-//       bplus.Descend(page2);
-//       if(bplus.notfound){
-//         bplus.Shift(page2);
-//       }
-//       else if(bplus.found)break;
-//       UnlockRead(page1);
-//       page1 = page2;
-//       LockRead(page1);
-//     }
-//     // insert to table //
-//     if(split){
-//       SplitBPlus(bplus);
-//     }
-//   }
-//   Status SplitBPlus(PageHandle page);
+  // table //
+  BFlowCursor* table_;
+  // primary index //
+  BPlusCursor* primary_index_;
+  // index //
+  vector<BCursor*> indexs_;
+  // vector<Slice> index_metas_; // hand over to upper manager
+  struct KeyHandlePair{
+    Fragment key;
+    PageHandle page;
+  }
+  vector<KeyHandlePair> stack_;
+  // find by range
+  Status FindBy(size_t index_id, Fragment from, Fragment to);// write into stack_
+  Status FindBy(size_t index_id, Fragment key);
+  Status Get(void); // write to global stack ?
+  // Update: Get, Delete, Modify, Insert ?
+  Status Put(Slice data);
 
-// }
+  Status Insert(char* key){
+    page1,page2;
+    while(true){
+      bplus.Descend(page2);
+      if(bplus.notfound){
+        bplus.Shift(page2);
+      }
+      else if(bplus.found)break;
+      UnlockRead(page1);
+      page1 = page2;
+      LockRead(page1);
+    }
+    // insert to table //
+    if(split){
+      SplitBPlus(bplus);
+    }
+  }
+  Status SplitBPlus(PageHandle page);
+
+}
 
 // B Tree
 // Page Layout :: [1byte size] + [2byte page] + [x'b key | 2byte no | 2byte ptr(no)]*
