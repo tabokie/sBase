@@ -123,33 +123,21 @@ class BFlowCursor{
       b_data = b_data+offset*(lo%kSectionBSize);
     }
     else{
-
-    }
-
-    // binary searching
-    size_t hi = size, mid, lo = 0;
-    while(hi - lo >= 2){
-      mid = lo+(hi-lo)/2;
-      char* frag = cur_data+offset*mid;
-      frag >> cur;
-      if(cur == key_){
-        lo = mid;
-        break;
+      size_t hi = asize+1, mid, lo = 0;
+      while(hi - lo >= 2){
+        mid = lo+(hi-lo)/2;
+        char* cur_record = a_data+offset*mid;
+        cur_record >> cur;
+        if(cur == key_){
+          lo = mid;
+          break;
+        }
+        else if(cur < key_)lo = mid;
+        else hi = mid;
       }
-      else if(cur < key_)lo = mid;
-      else hi = mid;
+      a_data = a_data+offset*lo;
     }
-    cur_data = cur_data+offset*lo;
-    page_no = *(reinterpret_cast<PageHandle*>(cur_data+key_.length()));
-    if(page_->type(page_no) == kBPlusIndexPage){
-      status_ = kDescended;
-    }
-    else {
-      status_ = kMatch;
-    }
-    stack_[++stack_top_] = page_no;
-    level_ ++;
-    return Status::OK();
+
   }
   Status Insert(){
     if(!page_->type(page_no_) == kBFlowTablePage)MoveTo(head_);
