@@ -7,7 +7,7 @@
 
 Syntax Rule /18-4-8
 
-select_clause = 'select' + column_list + 'from' + table_list + where_clause + ';'
+`select_clause = 'select' + column_list + 'from' + table_list + where_clause + ';'
 column_list = '*'
 column_list = column + column_list_tail
 column = name + '.' + name
@@ -41,3 +41,4 @@ factor_tail = "*" + factor + factor_tail // for multiply take different meaning
 factor = '(' + value_expr + ')'
 factor = column,number,string
 factor = unary_op + factor
+`
