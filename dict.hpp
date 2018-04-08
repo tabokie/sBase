@@ -8,6 +8,7 @@
 
 namespace sbase{
 
+// coded from 1
 template <typename T>
 class AutoDict{
   size_t size_;
@@ -18,7 +19,7 @@ class AutoDict{
   template <class ...Args>
   AutoDict(Args... args):size_(0){ 
     size_ = sizeof...(args);
-    int arr[] = { ( word_.push_back(args), map_.Insert(args,word_.size()-1),0)... };
+    int arr[] = { ( word_.push_back(args), map_.Insert(args,word_.size()),0)... };
 
   }
   ~AutoDict(){ }
@@ -27,14 +28,14 @@ class AutoDict{
   static inline AutoDict<T> MakeAutoDict(Args... args){
     AutoDict<T> d;
     d.size_ = sizeof...(args);
-    int arr[] = { ( d.word_.push_back(args), d.map_.Insert(args,d.word_.size()-1),0)... };
+    int arr[] = { ( d.word_.push_back(args), d.map_.Insert(args,d.word_.size()),0)... };
     return d;
   }
-  T operator()(size_t idx){
-    if(idx >= size_)return static_cast<T>(0);
-    return word_[idx];
+  T operator()(size_t idx) const {
+    if(idx > size_)return static_cast<T>(0);
+    return word_[idx-1];
   }
-  int operator[](T name){
+  int operator[](T name) const {
     int ret;
     if(map_.Get(name, ret)){
       return ret;

@@ -67,7 +67,7 @@ class HashMap{
     PairPtr p = make_shared<PairType>(key, element);
     return Insert(key, p);
   }
-  bool Get(KeyType key, ElementType& element){
+  bool Get(KeyType key, ElementType& element) const{
     unsigned int hash_val  = hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
