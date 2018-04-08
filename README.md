@@ -7,8 +7,12 @@
 
 Syntax Rule /18-4-8
 
+<<<<<<< HEAD
 ```
 select_clause = 'select' + column_list + 'from' + table_list + where_clause + ';' 
+=======
+`select_clause = 'select' + column_list + 'from' + table_list + where_clause + ';' 
+>>>>>>> 54055c97a387cb7a55106f112b2ada9460b0a798
 
 column_list = '*'
 
@@ -74,5 +78,9 @@ factor = '(' + value_expr + ')'
 
 factor = column,number,string
 
+<<<<<<< HEAD
 factor = unary_op + factor
 ```
+=======
+factor = unary_op + factor`
+>>>>>>> 54055c97a387cb7a55106f112b2ada9460b0a798
