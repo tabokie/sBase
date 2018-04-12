@@ -11,15 +11,18 @@ using std::shared_ptr;
 using std::make_shared;
 using std::string;
 
+using std::cout;
+using std::endl;
+
 
 template<typename T>
-struct hash{ 
+struct _hash{ 
   size_t operator()(const T& key) const{
     return std::hash<T>{}(key);
   }
 };
 // Hash function for string
-template<> struct hash<std::string>{
+template<> struct _hash<std::string>{
     typedef size_t result_type;
     typedef std::string argument_type;
     size_t operator()(const std::string& str) const{
@@ -60,7 +63,7 @@ class HashMap{
     table_ = new PairPtr[size_];
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
   }
-  ~HashMap(){ delete [] table_; }
+  ~HashMap(){ } // no delete ptr_object
 
   // insert element
   bool Insert(KeyType key, ElementType element){
@@ -68,7 +71,7 @@ class HashMap{
     return Insert(key, p);
   }
   bool Get(KeyType key, ElementType& element) const{
-    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
+    unsigned int hash_val  = _hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
     // quadratic proding
@@ -86,7 +89,7 @@ class HashMap{
   }
 
   bool Delete(KeyType key){
-    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
+    unsigned int hash_val  = _hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
     // quadratic proding
@@ -105,7 +108,7 @@ class HashMap{
   }
 
   bool DeleteOnGet(KeyType key, ElementType& element){
-    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
+    unsigned int hash_val  = _hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
     // quadratic proding
@@ -134,7 +137,7 @@ class HashMap{
 
  private:
   bool Insert(KeyType key, PairPtr p){
-    unsigned int hash_val  = hash<KeyType>{}(key) % size_;
+    unsigned int hash_val  = _hash<KeyType>{}(key) % size_;
     unsigned int cur = hash_val;
     int offset = 1;
     // quadratic proding

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cassert>
 #include <iostream>
+using namespace std;
 
 
 template <typename _ET>
@@ -17,13 +18,17 @@ class Stack{
   Stack(size_t size = kDefaultStackSize):size_(size), top_(0){ 
     stack_ = new ElementType[size_];
   }
+  Stack(const Stack& that):size_(that.size_),top_(that.top_){
+    stack_ = new ElementType[size_];
+    for(int i = 0; i<top_; i++)stack_[i] = that.stack_[i];
+  }
   template <class ...Args>
   Stack(Args... args):size_(sizeof...(args)){
     stack_ = new ElementType[size_];
     top_ = size_;
     InitWithArgs(args...);
   }
-  ~Stack(){delete [] stack_;}
+  ~Stack(){ delete [] stack_; }
 
   Stack& operator+=(ElementType new_element){
     push(new_element);
@@ -39,6 +44,17 @@ class Stack{
     top_ = new_size;
     return *this;
   }
+  Stack operator+(const Stack& that){
+    Stack<ElementType> new_stack = *this;
+    size_t new_size = new_stack.top_ + that.top_;
+    while(new_size > new_stack.size_)
+      assert(new_stack.Expand());
+    for(int i = new_stack.top_; i < new_size; i++){
+      new_stack.stack_[i] = that.stack_[i-top_];
+    }
+    new_stack.top_ = new_size;
+    return new_stack;
+  }
   inline ElementType push(ElementType element){
     if(top_+1 > size_)Expand();
     stack_[top_++] = element;
@@ -51,6 +67,14 @@ class Stack{
   ElementType first(void){
     if(top_ <= 0) return static_cast<ElementType>(0);
     return stack_[top_-1];
+  }
+  size_t size(void){return top_;}
+  void Put(std::ostream& os){
+    for(int i = top_-1; i >= 0; i--){
+      os << stack_[i] << " ";
+    }
+    os << std::endl;
+    return ;
   }
 
  private:
@@ -73,14 +97,16 @@ class Stack{
     stack_ = new_stack;
     return true;
   }
-  void Put(std::ostream& os){
+
+  friend std::ostream& operator<<(std::ostream& os, Stack<_ET> that){
     os << "||>";
-    for(int i = 0; i<top_; i++){
-      os << stack_[i] << " ";
+    for(int i = 0; i<that.top_; i++){
+      os << that.stack_[i] << " ";
     }
     os << std::endl;
-    return ;
+    return os;
   }
+
 
 };
 

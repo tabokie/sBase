@@ -6,6 +6,10 @@
 #include <vector>
 #include <cassert>
 
+// #include <iostream>
+// using std::cout;
+// using std::endl;
+
 namespace sbase{
 
 // coded from 1
@@ -17,10 +21,9 @@ class AutoDict{
 
  public:
   template <class ...Args>
-  AutoDict(Args... args):size_(0){ 
+  AutoDict(Args... args):size_(0),map_(){ 
     size_ = sizeof...(args);
     int arr[] = { ( word_.push_back(args), map_.Insert(args,word_.size()),0)... };
-
   }
   ~AutoDict(){ }
 
@@ -88,7 +91,69 @@ class Dict{
   }
 };
 
+template <typename _KT, typename _DT>
+class LayeredDict{
+  size_t size_;
+  using DataType = _DT;
+  using LayerPtr = shared_ptr<std::vector<DataType>>;
+  using KeyType = _KT;
+  HashMap<KeyType,LayerPtr> k2d_;
 
+  ArgsInit(KeyType key, DataType data){
+    size_++;
+    LayerPtr slot;
+    if(k2d_.Get(key, slot)){
+      slot->push_back(data);
+    }
+    else{
+      auto ptr = make_shared<std::vector<DataType>>();
+      ptr->push_back(data);
+      assert(k2d_.Insert(key,ptr ));
+    }
+  }
+  template <class ...Args>
+  ArgsInit(_KT key, _DT data, Args... args){ 
+    size_++;
+    LayerPtr slot;
+    if(k2d_.Get(key, slot)){
+      slot->push_back(data);
+    }
+    else{
+      auto ptr = make_shared<std::vector<DataType>>();
+      ptr->push_back(data);
+      assert(k2d_.Insert(key,ptr ));
+    }
+    ArgsInit(args...);
+  }
+
+ public:
+  template <class ...Args>
+  LayeredDict(Args... args):size_(0){ 
+    ArgsInit(args...);
+  }  
+  ~LayeredDict(){ }
+
+  // get certain rule
+  DataType get_rule(_KT key, int idx){
+    LayerPtr ret;
+    if(k2d_.Get(key, ret)){
+      if(idx <0 || idx >= (*ret).size())return DataType();
+      return (*ret)[idx];
+
+    }
+    return DataType();
+  }
+
+  // get data from key
+  std::vector<DataType> operator[](_KT key){
+    LayerPtr ret;
+    if(k2d_.Get(key, ret)){
+      return *ret;
+    }
+    return std::vector<DataType>();
+  }
+
+};
 
 } // namespace sbase
 
