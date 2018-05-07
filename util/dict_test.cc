@@ -1,6 +1,6 @@
 #include <gtest\gtest.h>
 
-#include "dict.hpp"
+#include "./util/dict.hpp"
 #include <string>
 
 using namespace sbase;

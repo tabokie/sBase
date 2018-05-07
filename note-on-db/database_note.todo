@@ -1,0 +1,69 @@
+<http://blog.csdn.net/heiyeshuwu/article/details/9722443>
+<https://zhuanlan.zhihu.com/p/32900004>
+MongoDB
+FastDB
+BerkeleyDB
+
+Basic Operationi Support:
+	☐	Insert, Find
+	☐	Update index
+	☐	Relational math
+
+Fractal Tree:
+	Overview:
+		☐	flush from root to node; record in nodes are sorted
+	Implementation:
+		(TokuMX)
+		<https://www.percona.com/blog/2013/07/02/tokumx-fractal-treer-indexes-what-are-they/>
+		<http://mysql.taobao.org/monthly/2016/04/09/>
+
+LSM:
+	Implementation:
+		(LevelDB)
+		<https://www.zhihu.com/question/19887265?sort=created>
+		<https://yq.aliyun.com/articles/64357>
+		<http://blog.csdn.net/linuxheik/article/details/52768223>
+		<http://blog.jobbole.com/111792/>
+		(Bigtable)
+		<https://lunatictwo.github.io/2017/09/25/Hbase&&BigTable/>
+		<http://blog.csdn.net/baigoohao/article/details/50878645>
+		(Bitcask)
+		<http://blog.nosqlfan.com/html/955.html>
+
+Stratified Tree:
+
+COLA:
+	Implementation:
+		(TokuDB)
+		<http://blog.sae.sina.com.cn/archives/2932> ?? <http://blog.csdn.net/jwh_bupt/article/details/7901269>
+		<https://stackoverflow.com/questions/6079890/cache-oblivious-lookahead-array>
+
+B:
+	Implementation:
+		(boltDB)
+		<https://github.com/qw4990/blog/blob/master/database/boltDB/MODEL.md>
+		(sqlite)
+		(redbase)
+		<https://github.com/junkumar/redbase/blob/master/src/ix_DOC>
+
+Other Tech:
+	Bloom filter:
+		(is X in Set)
+		<http://blog.csdn.net/zdxiq000/article/details/57626464>
+	Hash:
+		(Redis)
+		<http://dongxicheng.org/nosql/redis-code-hashtable/>
+		<http://blog.csdn.net/dlf123321/article/details/53365765>
+	Hash Tree:
+		(Beansdb)
+		<http://www.wzxue.com/%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90beansdb/>
+	Virtual Machine:
+		(sqlite)
+		<http://www.sqlite.org/vdbe.html>
+	Skip List:
+		(levelDB)
+
+
+
+cache 4-ry heap
+pair heap

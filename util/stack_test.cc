@@ -1,6 +1,6 @@
 #include <gtest\gtest.h>
 
-#include "stack.hpp"
+#include "./util/stack.hpp"
 
 #include <iostream>
 using namespace std;

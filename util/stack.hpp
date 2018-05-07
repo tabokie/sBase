@@ -1,5 +1,5 @@
-#ifndef SBASE_STACK_HPP_
-#define SBASE_STACK_HPP_
+#ifndef SBASE_UTIL_STACK_HPP_
+#define SBASE_UTIL_STACK_HPP_
 
 #include <cstddef>
 #include <cassert>
@@ -110,4 +110,4 @@ class Stack{
 
 };
 
-#endif // SBASE_STACK_HPP_
+#endif // SBASE_UTIL_STACK_HPP_

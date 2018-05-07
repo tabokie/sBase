@@ -1,8 +1,8 @@
 #ifndef SBASE_STORAGE_MEMPOOL_HPP_
 #define SBASE_STORAGE_MEMPOOL_HPP_
 
-#include "status.h"
-#include "hash.hpp"
+#include "./util/status.h"
+#include "./util/hash.hpp"
 
 #include <cassert>
 #include <vector>

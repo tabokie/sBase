@@ -1,17 +1,5 @@
-// Copyright (c) 2011 The LevelDB Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. See the AUTHORS file for names of contributors.
-//
-// A Status encapsulates the result of an operation.  It may indicate success,
-// or it may indicate an error with an associated error message.
-//
-// Multiple threads can invoke const methods on a Status without
-// external synchronization, but if any of the threads may call a
-// non-const method, all threads accessing the same Status must use
-// external synchronization.
-
-#ifndef SBASE_STORAGE_STATUS_H_
-#define SBASE_STORAGE_STATUS_H_
+#ifndef SBASE_SUTILSTATUS_HPP_
+#define SBASE_SUTILSTATUS_HPP_
 
 #include <string>
 
@@ -67,7 +55,44 @@ class Status {
 
 	// Return a string representation of this status suitable for printing.
 	// Returns the string "OK" for success.
-	std::string ToString() const;
+	std::string ToString() const{
+	  if (state_ == NULL) {
+	    return "OK";
+	  } else {
+	    char tmp[30];
+	    const char* type;
+	    switch (code()) {
+	      case kOk:
+	        type = "OK";
+	        break;
+	      case kNotFound:
+	        type = "NotFound: ";
+	        break;
+	      case kCorruption:
+	        type = "Corruption: ";
+	        break;
+	      case kNotSupported:
+	        type = "Not implemented: ";
+	        break;
+	      case kInvalidArgument:
+	        type = "Invalid argument: ";
+	        break;
+	      case kIOError:
+	        type = "IO error: ";
+	        break;
+	      default:
+	        snprintf(tmp, sizeof(tmp), "Unknown code(%d): ",
+	                 static_cast<int>(code()));
+	        type = tmp;
+	        break;
+	    }
+	    std::string result(type);
+	    uint32_t length;
+	    memcpy(&length, state_, sizeof(length));
+	    result.append(state_ + 5, length);
+	    return result;
+	  }
+	}
 
  protected:
 	// OK status has a NULL state_.  Otherwise, state_ is a new[] array
@@ -90,8 +115,29 @@ class Status {
 		return (state_ == NULL) ? kOk : static_cast<Code>(state_[4]);
 	}
 
-	Status(Code code, const std::string& msg, const std::string& msg2);
-	static const char* CopyState(const char* s);
+	Status(Code code, const std::string& msg, const std::string& msg2){
+	  assert(code != kOk);
+	  const uint32_t len1 = msg.size();
+	  const uint32_t len2 = msg2.size();
+	  const uint32_t size = len1 + (len2 ? (2 + len2) : 0);
+	  char* result = new char[size + 5];
+	  memcpy(result, &size, sizeof(size));
+	  result[4] = static_cast<char>(code);
+	  memcpy(result + 5, msg.c_str(), len1);
+	  if (len2) {
+	    result[5 + len1] = ':';
+	    result[6 + len1] = ' ';
+	    memcpy(result + 7 + len1, msg2.c_str(), len2);
+	  }
+	  state_ = result;
+	}
+	static const char* CopyState(const char* state){
+	  uint32_t size;
+	  memcpy(&size, state, sizeof(size));
+	  char* result = new char[size + 5];
+	  memcpy(result, state, size + 5);
+	  return result;
+	}
 };
 
 inline Status::Status(const Status& s) {
@@ -108,4 +154,4 @@ inline void Status::operator=(const Status& s) {
 
 }  // namespace leveldb
 
-#endif  // SBASE_STORAGE_STATUS_H_
+#endif  // SBASE_UTIL_STATUS_HPP_

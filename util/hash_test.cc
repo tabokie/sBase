@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "hash.hpp"
+#include "./util/hash.hpp"
 
 TEST(HashMapTest, OccupiedSize){
 	HashMap<int,int> map;

@@ -1,5 +1,5 @@
-#ifndef SBASE__UTILITY_HPP_
-#define SBASE__UTILITY_HPP_
+#ifndef SBASE_UTIL_HPP_
+#define SBASE_UTIL_HPP_
 
 
 class NonCopy {
@@ -10,4 +10,4 @@ class NonCopy {
 		NonCopy& operator=(const NonCopy &) = delete;
 };
 
-#endif /* SBASE__UTILITY_HPP_ */
+#endif /* SBASE_UTIL_HPP_ */

@@ -1,10 +1,10 @@
-#ifndef SBASE_SCANNER_HPP_
-#define SBASE_SCANNER_HPP_
+#ifndef SBASE_COMPILER_SCANNER_HPP_
+#define SBASE_COMPILER_SCANNER_HPP_
 
 
-#include "./storage/hash.hpp"
-#include "dict.hpp"
-#include "./storage/status.hpp"
+#include "./util/hash.hpp"
+#include "./util/dict.hpp"
+#include "./util/status.hpp"
 
 #include <string>
 #include <iostream>
@@ -87,4 +87,4 @@ class Scanner{
 
 } // namespace sbase
 
-#endif // SBASE_SCANNER_HPP_
+#endif // SBASE_COMPILER_SCANNER_HPP_

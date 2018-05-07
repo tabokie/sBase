@@ -22,7 +22,7 @@ class FrontMock{
   void SetupFieldMeta(void){
     type0_.Instantialize<int>("int");
     meta.AddField(string("ID"), type0_);
-    type1_.Instantialize<char>("char10",10*sizeof(char));
+    type1_.Instantialize<char>("char(10)",10*sizeof(char));
     meta.AddField(string("TEXT"), type1_);  
     
   }

@@ -1,10 +1,10 @@
 #ifndef SBASE_STORAGE_PAGE_MANAGER_H_
 #define SBASE_STORAGE_PAGE_MANAGER_H_
 
-#include "status.h"
-#include "file.h"
-#include "mempool.hpp"
-#include "buzy_queue.hpp"
+#include "./util/status.h"
+#include "./storage/file.h"
+#include "./storage/mempool.hpp"
+#include "./util/buzy_queue.hpp"
 
 #include <vector>
 #include <cassert>
@@ -33,6 +33,7 @@ enum PageType{
 struct PageMeta{
   FileHandle file;
   PageType type;
+  Latch latch;
   size_t offset;
   size_t size;
   PageMeta(FileHandle f, PageType t, size_t o, size_t s = 0):

@@ -32,6 +32,8 @@ namespace sbase{
 //   table_->Get(table_idx_->no);
 // }
 
+// Control: create new page, lock existing page
+
 class Treer{
 
   // table //
@@ -92,7 +94,7 @@ class BFlowCursor{
     kFragValued = 0,
     kSliceValued = 1
   }
-  PageManager* page_;
+  PageManager* page_; // only access for page type assertion
   PageHandle page_no_;
   char* page_data_;
   Fragment key_;
@@ -166,9 +168,13 @@ class BFlowCursor{
 };
 
 
-// B Plus Tree (ommit pivot)
+
+// B Plus Tree //
+// For primary index, have forward pointer
 // Page Layout :: [1byte size] + [x'b key | 2 byte ptr] + [x'b key | 2byte ptr]*
 // One Step only
+// Whole Procedure: find ptr, insert (key,ptr) pair, change ptr(to nullptr allowed)(narrowed to insert)
+// Micro control: (Lock), read, find ptr, set status, (Unlock)
 // Move //
   // Right Shift
   // Descend
@@ -186,14 +192,13 @@ class BFlowCursor{
 class BPlusCursor{
   static const size_t kBPlusStackSize = 8;
   enum BPlusStatus{
-    kNormal = 0,
-    kMatch = 1,
-    kDescended = 2,
-    kShifted = 3,
-    kFull = 4,
-    kSplit = 5,
-    kNotFound = 6,
-    kNilTree = 7
+    kEmpty = 0,
+    kError = 1,
+    kDescendNodePage = 2,
+    kShiftNodePage = 3,
+    kLeafPage = 4,
+    kNoMatchReady = 5,
+    kNoMatchFull = 6
   };
  private:
   // constant
@@ -202,19 +207,22 @@ class BPlusCursor{
   // backtracking
   PageHandle stack_[kBPlusStackSize];
   int stack_top_;
-  size_t level_;
+  int level_;
   // page handle
   char* page_data_;
+  int slice_offset_;
   // cursor status
   BPlusStatus status_;
+  std::string last_error_;
  public:
   BPlusCursor(PageManager* page, Type* type, PageHandle root = 0):
     page_(page), 
-    page_data_(nullptr), 
+    page_data_(nullptr),
+    slice_offset_(-1), 
     key_(type), 
-    stack_top_(0),
-    level_(0){
-    stack_[0] = root;
+    stack_top_(-1),
+    level_(-1){ 
+    stack_[0] = 0; // nil page
   }
   ~BPlusCursor(){ }
   inline Status SetRoot(PageHandle root){
@@ -239,9 +247,15 @@ class BPlusCursor{
     return (in >> cursor.key_());
   }
   // Move //
-  inline Status MoveTop(void){
+  inline Status CurseBack(void){
     stack_top_ = 0;
-    if(stack_[0] == 0)status_ = kNilTree;
+    if(stack_[0] == 0){
+      status_ = kError;
+      last_error_ = "Nil Tree";
+      stack_top_ = -1;
+      level_ = -1;
+      return Status::Corruption("Nil Tree");
+    }
     level_ = 0;
     return Status::OK();
   }

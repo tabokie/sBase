@@ -1,5 +1,5 @@
-#ifndef SBASE_STORAGE_HASH_HPP_
-#define SBASE_STORAGE_HASH_HPP_
+#ifndef SBASE_UTIL_HASH_HPP_
+#define SBASE_UTIL_HASH_HPP_
 
 #include <memory>
 #include <string>
@@ -180,4 +180,4 @@ class HashMap{
 
 }; // class Hash
 
-#endif // SBASE_STORAGE_HASH_HPP_
+#endif // SBASE_UTIL_HASH_HPP_

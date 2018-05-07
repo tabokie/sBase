@@ -1,5 +1,5 @@
-#ifndef SBASE_STORAGE_BUZY_QUEUE_HPP_
-#define SBASE_STORAGE_BUZY_QUEUE_HPP_
+#ifndef SBASE_UTIL_BUZY_QUEUE_HPP_
+#define SBASE_UTIL_BUZY_QUEUE_HPP_
 
 
 #include "hash.hpp"
@@ -84,4 +84,4 @@ class BuzyQueue{
 
 }
 
-#endif // SBASE_STORAGE_BUZY_QUEUE_HPP_
+#endif // SBASE_UTIL_BUZY_QUEUE_HPP_

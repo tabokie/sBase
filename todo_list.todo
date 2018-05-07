@@ -20,6 +20,7 @@ In Process:
 		☐	Maintain: with update
 	☐	Lock
 	☐	Front End
-		☐	Scanner
-			☐	Syntax rule: control block
-		☐	Parser
+		✔	Scanner @done (18-04-12 12:41)
+			✔	Syntax rule: control block @done (18-04-12 12:41)
+		✔	Parser @done (18-04-12 12:41)
+		☐	Compiler

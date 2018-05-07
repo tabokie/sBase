@@ -1,15 +1,24 @@
-#ifndef SBASE_FRONT_PARSER_HPP_
-#define SBASE_FRONT_PARSER_HPP_
+#ifndef SBASE_COMPILER_PARSER_HPP_
+#define SBASE_COMPILER_PARSER_HPP_
 
-#include "scanner.hpp" // struct Token
+#include "./compiler/scanner.hpp" // struct Token
 
-#include "stack.hpp"
-#include "dict.hpp"
+#include "./util/stack.hpp"
+#include "./util/dict.hpp"
 
-#include ".\storage\status.hpp"
+#include "./util/status.hpp"
 
 #include <list>
 #include <iostream>
+
+/* Sample  **
+  Parser parser;
+  // cout << parser;
+  parser.NextPredict(8);
+  cout << parser;
+  parser.NextPredict(15);
+  cout << parser;
+*/
 
 namespace sbase{
 
@@ -48,6 +57,7 @@ LayeredDict<int, Stack<int>> kRuleDict(
   _from_("column_list"),_to_("MULTIPLY_OP"),
   _from_("column_list"),_to_("column","column_list_tail"),
   _from_("column"),_to_("NAME", "DOT", "NAME"),
+  _from_("column"),_to_("NAME", "DOT", "MULTIPLY_OP"),
   _from_("column"),_to_("NAME"),
   _from_("column_list_tail"),_to_("NONE"),
   _from_("column_list_tail"),_to_("column","column_list_tail"),
@@ -121,6 +131,11 @@ class Parser{
     processes_.push_back(make_shared<ParsingProcess>(Stack<CommonSymbol>(kSymbolDict["sql"])));
   }
   ~Parser(){ }
+  Status Clear(void){
+    processes_.clear();
+    processes_.push_back(make_shared<ParsingProcess>(Stack<CommonSymbol>(kSymbolDict["sql"])));
+    return Status::OK();
+  }
   Status NextPredict(Token current){
     CommonSymbol current_symbol = current.id;
     int idx =0;
@@ -177,14 +192,5 @@ class Parser{
 
 } // namespace sbase
 
-/*
-  Parser parser;
-  // cout << parser;
-  parser.NextPredict(8);
-  cout << parser;
-  parser.NextPredict(15);
-  cout << parser;
-*/
 
-
-#endif // SBASE_FRONT_PARSER_HPP_
+#endif // SBASE_COMPILER_PARSER_HPP_

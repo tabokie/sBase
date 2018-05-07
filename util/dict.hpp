@@ -1,7 +1,7 @@
-#ifndef SBASE_INTERPRETER_DICT_HPP_
-#define SBASE_INTERPRETER_DICT_HPP_
+#ifndef SBASE_UTIL_DICT_HPP_
+#define SBASE_UTIL_DICT_HPP_
 
-#include "./storage/hash.hpp"
+#include "./util/hash.hpp"
 
 #include <vector>
 #include <cassert>
@@ -68,7 +68,7 @@ class Dict{
 
  public:
   template <class ...Args>
-  Dict(Args... args):size_(0){ 
+  Dict(Args... args):size_(0),k2d_(sizeof...(args)),d2k_(sizeof...(args)){ 
     ArgsInit(args...);
   }  
   ~Dict(){ }
@@ -157,4 +157,4 @@ class LayeredDict{
 
 } // namespace sbase
 
-#endif // SBASE_INTERPRETER_DICT_HPP_
+#endif // SBASE_UTIL_DICT_HPP_
