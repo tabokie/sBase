@@ -62,6 +62,27 @@ Other Tech:
 		<http://www.sqlite.org/vdbe.html>
 	Skip List:
 		(levelDB)
+	LXU:
+		☐	types: LRU(recently), LFU(frequency)
+		☐	(LRU) timestamp field + random select N(3-5) then 1
+			☐	improvement - idle pool: second selection
+		☐	(LRU) classic stack converted to HashMapb with LinkedList
+		☐	(LRU-K)
+		☐	(2Q) FIFO + LRU
+		☐	(MQ) Multi LRU + Q-history
+		☐	(LFU) Last Decr Time field + Counter field
+			☐	detail 1: log increment
+	uint8_t LFULogIncr(uint8_t counter) {
+      if (counter == 255) return 255;
+      double r = (double)rand()/RAND_MAX;
+      double baseval = counter - LFU_INIT_VAL;
+      if (baseval < 0) baseval = 0;
+      double p = 1.0/(baseval*server.lfu_log_factor+1);
+      if (r < p) counter++;
+      return counter;
+  }
+  		☐	detail 2: use time field to halve
+  	☐	(LXU, in parallel) clock pointer
 
 
 

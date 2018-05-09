@@ -6,6 +6,10 @@
 struct Blob{
 	size_t len;
 	char* data;
+	Blob():len(1){
+		data = new char[1];
+		data[0] = '\0';
+	}
 	Blob(char* ptr, size_t l):len(l){
 		if(len <=0 ){
 			data = nullptr;
