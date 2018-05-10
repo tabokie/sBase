@@ -23,18 +23,18 @@ struct _hash{
 };
 // Hash function for string
 template<> struct _hash<std::string>{
-    typedef size_t result_type;
-    typedef std::string argument_type;
-    size_t operator()(const std::string& str) const{
-      const char* ptr = (str.c_str());
-      unsigned int seed = 131;
-      unsigned int hash = 0;
-      size_t cur = 0;
-      while(ptr[cur]){
-        hash = hash * seed + (ptr[cur++]);
-      }
-      return hash;  
+  typedef size_t result_type;
+  typedef std::string argument_type;
+  size_t operator()(const std::string& str) const{
+    const char* ptr = (str.c_str());
+    unsigned int seed = 131;
+    unsigned int hash = 0;
+    size_t cur = 0;
+    while(ptr[cur]){
+      hash = hash * seed + (ptr[cur++]);
     }
+    return hash;  
+  }
 };
 
 

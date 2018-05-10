@@ -10,7 +10,7 @@ struct Blob{
 		data = new char[1];
 		data[0] = '\0';
 	}
-	Blob(char* ptr, size_t l):len(l){
+	Blob(const char* ptr, size_t l):len(l){
 		if(len <=0 ){
 			data = nullptr;
 			len = 0;
@@ -20,7 +20,7 @@ struct Blob{
 			memcpy(data, ptr, sizeof(char)*len);			
 		}
 	}
-	~Blob(){ delete [] data;}
+	~Blob(){ if(data)delete [] data;}
 	Blob(const Blob& rhs):len(rhs.len){
 		if(len <= 0){
 			data = nullptr;
@@ -30,6 +30,15 @@ struct Blob{
 			data = new char[len];
 			memcpy(data, rhs.data, sizeof(char)*len);
 		}
+	}
+	bool operator==(const Blob& rhs) const{
+		if(len != rhs.len) return false;
+		for(int i=  0; i< len; i++){
+			char a = data[i];
+			char b = rhs.data[i];
+			if(a!=b)return false;
+		}
+		return true;
 	}
 };
 

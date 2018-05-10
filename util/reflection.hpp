@@ -2,8 +2,8 @@
 #include <string>
 #include <sstream>
 
-// #include "util\blob.hpp"
-#include "blob.hpp"
+#include "util\blob.hpp"
+// #include "blob.hpp"
 
 #include <vector>
 #include <iterator>
@@ -18,7 +18,7 @@ class Value;
 // convertion: 
 // string <->	Value (public interface) 		 <-> blob
 // 							|
-// string <-> RealValue (<-explicit value) <-> blob
+// string <-> RealValue (<->explicit value)<-> blob
 // 					 		|
 // 					 BaseValue(internal usage)
 class BaseValue{
@@ -58,6 +58,7 @@ template<> struct TypeLen<std::string>{
 // real value holder
 template <typename PlainType>
 class RealValue: public BaseValue{
+	friend Value;
 	PlainType val;
  public: 
  	// explicit define
@@ -82,19 +83,19 @@ class RealValue: public BaseValue{
  	}
  	// blob convert
  	void FromBlob(Blob bob){
- 		if(TypeLen<PlainType>(val) != bob.len){
+ 		if(TypeLen<PlainType>{}(val) != bob.len){
  			return ;
  		}
  		val = *(reinterpret_cast<PlainType*>(bob.data));
  		return ;
  	}
  	Blob ToBlob(void) const{
- 		return Blob((static_cast<char*>(&val)),TypeLen<PlainType>(val));
+ 		return Blob((reinterpret_cast<const char*>(&val)),TypeLen<PlainType>{}(val));
  	}
  	// set
  	void set(BaseValue const* v){
  		if(v){
- 			val = (static_cast<RealValue<PlainType>*const>(v).val);
+ 			val = (static_cast<const RealValue<PlainType>*>(v)->val);
  		}
  		else{
  			val = PlainType();
@@ -154,7 +155,7 @@ class Value{
 	Value(BaseValue const& v):val(v.clone()){ }
 	Value(Value const& rhs):val(rhs.val ? rhs.val->clone() : nullptr){ }
 	explicit Value(BaseValue* pv = nullptr):val(pv){ }
-	~Value(){delete val;}
+	~Value(){if(val)delete val;}
 	Value& operator=(const Value& rhs){
 		if(val){
 			if(rhs.val){
@@ -184,8 +185,8 @@ class Value{
 			val = Type::prototypes[type]->clone();
 		}
 	}
-	operator double()const{
-		return 0;
+	operator std::string()const{
+		return val->ToString();
 		// if(!val)return std::string("");
 		// return val->ToString();
 	}
@@ -195,10 +196,10 @@ class Value{
 			val->FromString(str);
 		}
 	}
-	// operator class Blob()const{
-	// 	if(!val)return Blob();
-	// 	return val->ToBlob();
-	// }
+	operator class Blob()const{
+		if(!val)return Blob();
+		return val->ToBlob();
+	}
 	Value(TypeT type, Blob bob):val(nullptr){
 		if(type < unknownT){
 			val = Type::prototypes[type]->clone();
@@ -283,16 +284,17 @@ class ClassDef{
 		name_(name),
 		definition_fix_(false){ 
 		BaseInit();
-		effective_attr_.insert(effective_attr_.end(), attr_.begin(), attr_.end());
 	}
 	bool AddAttribute(const Attribute& newAttr){
 		if(!definition_fix_){
 			attr_.push_back(newAttr);
+			effective_attr_.push_back(newAttr);
 			return true;
 		}
 		return false;
 	}
 	bool SubAttribute(size_t idx){
+		idx --;
 		if(!definition_fix_ && idx < attr_.size()){
 			attr_.erase(attr_.begin()+idx);
 			return true;
@@ -309,15 +311,18 @@ class ClassDef{
 		return false;
 	}
 	Attribute GetAttribute(size_t idx)const{
+		idx --;
 		assert(idx < effective_attr_.size());
 		return effective_attr_[idx];
 	}
-	Attribute GetAttribute(std::string name)const{
-		auto found = std::find(effective_attr_.begin(), effective_attr_.end(), name);
-		if(found != effective_attr_.end()){
-			return *found;
+	size_t GetAttributeIndex(std::string name)const{
+		for(int idx = 0; idx < effective_attr_.size(); idx++){
+			auto attr = effective_attr_[idx];
+			if(attr.getName() == name){
+				return idx+1;
+			}
 		}
-		return Attribute();
+		return 0;
 	}
 	size_t attributeCount(void)const{return effective_attr_.size();}
 	AttributeIterator attributeBegin(void)const{return effective_attr_.begin();}
@@ -349,14 +354,35 @@ class Object{
  		InitAttributeValue(args...);
  	}
  	~Object(){ }
- 	Object* clone(void){return nullptr;};
+ 	Object* clone(void){return new Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}
- 	Value GetValue(size_t idx);
- 	Value GetValue(const std::string& name);
- 	void SetValue(size_t idx, const Value& val);
- 	void SetValue(std::string name, const Value& val);
+ 	Value GetValue(size_t idx){
+ 		idx --;
+ 		if(idx >= values_.size())return Value();
+ 		return values_[idx];
+ 	}
+ 	Value GetValue(const std::string& name){
+ 		size_t index = class_->GetAttributeIndex(name);
+ 		if(index > 0)return values_[index-1];
+ 		else return Value();
+ 	}
+ 	bool SetValue(size_t idx, const Value& val){
+ 		idx --;
+ 		if(idx >= values_.size())return false;
+ 		values_[idx] = val;
+ 		return true;
+ 	}
+ 	bool SetValue(std::string name, const Value& val){
+ 		size_t index = class_->GetAttributeIndex(name);
+ 		if(index > 0){
+ 			values_[index-1] = val;
+ 			return true;
+ 		}
+ 		return false;
+ 	}
  private:
  	void InitAttributeValue(void){
+ 		if(class_)
  		for(auto attr = class_->attributeBegin(); attr < class_->attributeEnd(); attr++){
  			values_.push_back(Value((*attr).getType()));
  		}
