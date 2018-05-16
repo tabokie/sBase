@@ -23,6 +23,7 @@ class MemPool{
  private:
   HashMap<HandleType, size_t> pool_;
   vector<char*> blocks_;
+  BuzyVector<size_t> occupied_;
   queue<size_t> free_;
   size_t block_size_;
 
@@ -30,12 +31,21 @@ class MemPool{
   MemPool(size_t block = kMempoolDefaultBlockSize):block_size_(block){AllocBlocks(kInitBlock);};
   ~MemPool(){
     for(size_t i = 0; i < blocks_.size(); i++){
-      delete [] blocks_[i];
+      if(blocks_[i])delete [] blocks_[i];
     }
   }
-  Status New(HandleType page, size_t size, char*& ret_ptr){
+  Status ForceExpand(size_t size){
+    for(int i = 0; i< size; i++){
+      char* new_ptr = new char[block_size_];
+      size_t new_page = blocks_.size();
+      blocks_.push_back(new_ptr);
+      free_.push(new_page);
+    }
+    return Status::OK();
+  }
+  Status New(HandleType page, size_t size, char*& ret_ptr){ // control capacity
     char* new_ptr = nullptr;
-    if(free_.empty()){
+    if(free_.empty()){ // retire
       new_ptr = AllocNewBlock();
     }
     size_t idx = free_.front();
@@ -66,11 +76,8 @@ class MemPool{
     if(!pool_.Get(page, res) || res >= blocks_.size()) return nullptr;
     return blocks_[res];
   }
-  inline bool full(void){
-    return (free_.size() <= kFullSize);
-  }
  private:
-  inline char* AllocNewBlock(void){
+  inline char* AllocNewBlock(void){ // push default capacity
     assert(free_.empty());
     char* new_ptr = new char[block_size_];
     size_t new_page = blocks_.size();
@@ -78,7 +85,8 @@ class MemPool{
     free_.push(new_page);
     return new_ptr;
   }
-  inline bool AllocBlocks(size_t size){
+  inline bool AllocBlocks(size_t size){ // for initial allocation
+    assert(blocks_.size() == 0);
     for(int i = 0; i < size; i++){
       blocks_.push_back(new char[block_size_]);
       free_.push(i);

@@ -2,6 +2,7 @@
 
 namespace sbase{
 
+// File Interface //
 Status PageManager::NewFile(FileMeta file, FileHandle& handle){
   FileHandle fhandle = file_.size()+1;
 
@@ -37,7 +38,23 @@ Status PageManager::DeleteFile(FileHandle file){
   auto f = file_[file-1];
   return f->Delete();
 }
+// Page Interface //
+// first page if not specified
+Status PageManager::NewPage(FileHandle file, DataCursor cur = DataCursor::NilCursor()){
+  if(file < 1 || file > file_.size())return Status::InvalidArgument("File Handle Flow");
+  auto f = file_[file-1];
+  if(cur.isNilCursor())cur = f->getHeadCursor();
+  
+}
+// encode on append
+Status PageManager::AppendPage(FileHandle file, PageHandle& handle, DataCursor cur = DataCursor::NilCursor()){
+  if(file < 1 || file > file_.size())return Status::InvalidArgument("File Handle Flow");
+  auto f = file_[file-1];
+  auto start = f->getEndCursor();
+  auto end = f->getAppendCursor();
+  if(!cur.isNilCursor() && cur <= f->end())return Status::OK(); // no need to append
 
+}
 Status PageManager::New(FileHandle file, PageType type,PageHandle& page){
   assert(type != kInvalidPage);
   assert(file <= file_.size());

@@ -4,6 +4,11 @@ MongoDB
 FastDB
 BerkeleyDB
 
+File IO:
+	☐	Random Access: Memory Map, slower than readFile
+	☐	Sequential Access: Logically, not physically. By means of plain ReadFile ?
+
+
 Basic Operationi Support:
 	☐	Insert, Find
 	☐	Update index
@@ -66,11 +71,11 @@ Other Tech:
 		☐	types: LRU(recently), LFU(frequency)
 		☐	(LRU) timestamp field + random select N(3-5) then 1
 			☐	improvement - idle pool: second selection
-		☐	(LRU) classic stack converted to HashMapb with LinkedList
+		☐	(LRU) classic stack converted to HashMap with LinkedList
 		☐	(LRU-K)
 		☐	(2Q) FIFO + LRU
 		☐	(MQ) Multi LRU + Q-history
-		☐	(LFU) Last Decr Time field + Counter field
+		☐	(LFU) Last Decr Time field + Counter field @critical
 			☐	detail 1: log increment
 	uint8_t LFULogIncr(uint8_t counter) {
       if (counter == 255) return 255;
@@ -82,8 +87,15 @@ Other Tech:
       return counter;
   }
   		☐	detail 2: use time field to halve
-  	☐	(LXU, in parallel) clock pointer
-
+  	☐	(LXU, for parallel condition) clock pointer
+  Buffer Consistence:
+  	(for modify)
+  	☐	modify database, then delete buffer
+  		☐	if(fail 1 and fail sys): file sys
+  		☐	if(fail 1): recover buffer
+  		☐	if(fail 2): retry or expired buffer
+  	☐	delete buffer, then modify database
+  		☐	if(before 2, read): sequentialize
 
 
 cache 4-ry heap

@@ -18,7 +18,7 @@ int main(void){
 			cout << "Bye";
 			break;
 		}
-		if(buffer.find(";")){
+		if(buffer.find(";") < std::string::npos){
 			sentence += buffer;
 			scanner.Scan(sentence,v);
 			for(auto token: v){

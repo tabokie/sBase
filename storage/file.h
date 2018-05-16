@@ -16,24 +16,21 @@ enum Access {
 };
 
 struct FileMeta{
-  const char* filename;
-  size_t block_size;
+  const char* fileName;
+  size_t pageSize;
   Access access;
 
-  FileMeta(const char* name, size_t block, Access acs):
-    filename(name),block_size(block),access(acs){ 
-      if(access == kSequential){
-        block_size = kBlockSize;
-      }
-  }
+  FileMeta(const char* name, size_t page, Access acs):
+    fileName(name),blockSize(block),access(acs){ }
   // copy allowed
   FileMeta(const FileMeta& that){
-    filename = that.filename;
-    block_size = that.block_size;
+    fileName = that.fileName;
+    blockSize = that.blockSize;
     access = that.access;
   }
   ~FileMeta(){ }
 };
+
 
 #if defined(__WIN32) || defined(__WIN64)
 
@@ -43,6 +40,11 @@ struct FileMeta{
 typedef HANDLE OsFileHandle;
 typedef HANDLE OsMapHandle;
 
+inline void CaptureError(void){std::cout << "Last Error: " << GetLastError() << std::endl;}
+
+#endif // __WINXX
+
+
 class WritableFile{
  protected:
   FileMeta file_;
@@ -51,16 +53,16 @@ class WritableFile{
  public:
   WritableFile(FileMeta file):file_(file),file_end_(0){ }
   virtual ~WritableFile(){ };
-  virtual Status Open(void);
-  virtual Status Close(void);
-  virtual Status Delete(void);
+  virtual Status Open(void) = 0;
+  virtual Status Close(void) = 0;
+  virtual Status Delete(void) = 0;
   virtual Status Read(size_t offset, char* alloc_ptr) = 0;
   virtual Status Read(size_t offset, char* alloc_ptr, size_t size) = 0;
   virtual Status Flush(size_t offset, char* data_ptr) = 0;
   virtual Status Flush(size_t offset, char* data_ptr, size_t size) = 0;
-  virtual Status Append(size_t offset) = 0 ;
+  virtual Status Append(size_t offset) = 0;
   inline Access access(void){return file_.access;}
-  inline const char* name(void){return file_.filename;}
+  inline const char* name(void){return file_.fileName;}
   inline size_t size(void){return file_end_;}
 };
 
@@ -94,7 +96,6 @@ class RandomAccessFile : public WritableFile{
   Status Flush_(size_t offset, char* alloc, size_t size);
 };
 
-#endif // __WINXX
 
 
 }
