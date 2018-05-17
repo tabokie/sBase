@@ -5,6 +5,7 @@
 #include "./storage/file.h"
 #include "./storage/mempool.hpp"
 #include "./util/buzy_queue.hpp"
+#include "./util/utility.hpp"
 
 #include <vector>
 #include <cassert>
@@ -25,44 +26,26 @@ typedef uint8_t PageSizeType;
 const size_t kPageSizeWid = 1;
 
 enum PageType{
-  kBFlowTablePage = 0,
-  kBPlusIndexPage = 1,
-  kBIndexPage = 2,
-  kInvalidPage = 3
+  kEmptyPage = 0,
+  kBFlowTablePage = 1,
+  kBPlusIndexPage = 2,
+  kBIndexPage = 3
 };
 
-struct DataCursor{
-  size_t offset;
-  size_t size;
-  DataCursor(size_t a, size_t b):offset(a),size(b){ }
-  DataCursor():offset(0),size(0){ }
-  static DataCursor NilCursor(void){return DataCursor();}
-  bool isNilCursor(void) const{return size == 0;}
-  bool operator<(const DataCursor& rhs){
-    return offset+size < rhs.offset+rhs.size;
-  }
-  bool operator<=(const size_t end){
-    return offset+size < end;
-  }
-
-};
-
-
-struct PageMeta{
-  FileHandle file;
-  PageType type;
+class Page: public NonCopy{
+  PageHandle handle;
+  shared_ptr<File> file;
   Latch latch;
-  size_t offset;
-  size_t size;
-  PageMeta(FileHandle f, PageType t, size_t o, size_t s = 0):
-  file(f),offset(o),size(s),type(t) { }
-  PageMeta(const PageMeta& that):
-  file(that.file),type(that.type),offset(that.offset),size(that.size){ }
-  ~PageMeta(){ }
+  PageType type;
+  Timestamp modified;
+  Timestamp commited;
+ public:
+  Page(const File& f, PageHandle h):file(f), handle(h){ }
+  ~Page(){ }
+  bool Referenced(void){
+    return latch.occupied();
+  }
 };
-
-// unique page handle & file handle
-// class FrontMock;
 
 enum RuntimeAccessMode{
   kFailAccess = 0,
@@ -85,51 +68,65 @@ enum DeducedRuntimeAccessMode{
 struct PageRef{
   PageManager* manager; // global
   PageHandle handle;
-  FileHandle file;
+  // FileHandle file;
   DeducedRuntimeAccessMode mode;
-  char* ptr;
-  PageManager* manager;
+
  public:
+  char* ptr;
   PageRef(PageManager* manage, PageHandle page, RuntimeAccessMode rmode):
   handle(page),manager(manage),ptr(nullptr){
-    file = page >> (kLocalPageHandleWid) * 8;
-    if(!manager || rmode == kFailAccess)goto FAILING_REFERENCE;
+    // file = page >> (kLocalPageHandleWid) * 8;
+    if(!manager)mode = kFailAccess;
     else{
       manager->Pool(handle); // assert(inPool || no modify process), safe to pool
       if(rmode == kReadOnly){
         mode = kReadOnlyByPool;
         // read lock
-
+        auto latch = manager->GetLatch(handle);
+        latch->ReadLock();
+        ptr = manager->GetPageDataPtr(handle);
       }
       else if(rmode == kLazyModify){
         mode = kModifyByPool; 
         // write lock
-
+        auto latch = manager->GetLatch(handle);
+        latch->WriteLock();
+        ptr = manager->GetPageDataPtr(handle);
       }
-      else{
+      else if(rmode == kFatalModify){
         mode = kModifyByFile;
         // block other write
-
+        auto latch = manager->GetLatch(handle);
+        latch->WeakWriteLock();
+        manager->Sync(handle);
+        size_t size = manager->GetSize(handle);
         // self init ptr
-        ptr = new char[];
+        ptr = new char[size];
       }
+      else mode = kFailAccess;
     }
-    FAILING_REFERENCE: mode = kFailAccess;
   }
-  bool Invalid(void){return !manager || !}
   ~PageRef(){
     if(!manager && ptr){
       Error("Page reference by a corrupted page manager.");
     }
-    if(ptr){
-      if(mode == kReadOnlyByPool || mode == kModifyByPool){
+    else if(ptr){
+      if(mode == kReadOnlyByPooll){
         // unlock
+        auto latch = manager->GetLatch(handle);
+        latch->ReleaseReadLock();
+      }
+      else if(mode == kModifyByPool){
+        auto latch = manager->GetLatch(handle);
+        latch->ReleaseWriteLock();
       }
       else if(mode == kModifyByFile){
         // write to file
         manager->WriteFile(handle, ptr);
         // expire pool        
         manager->Expire(handle);
+        auto latch = manager->GetLatch(handle);
+        latch->ReleaseWeakWriteLock();
         delete [] ptr;
       }
     }
@@ -143,100 +140,61 @@ class PageManager{ // for unreferenced page, ready to retire
 public:
 
   using FilePtr = shared_ptr<WritableFile>;
+  using PagePtr = shared_ptr<Page>;
+  struct PageWrapper{
+    FilePtr file;
+    std::vector<PagePtr> pages;
+    size_t free_index;
+    size_t free_size;
+    PageWrapper(FilePtr f):file(f),free_index(0),free_size(0){ }
+    ~PageWrapper(){ }
+    void AddPage(PagePtr p){
+      if(!p){
+        free_size++;
+        if(free_size == 0)
+          free_index = pages.size();
+      }
+      pages.push_back(p);
+    }
+    LocalPageHandle GetFree(void){
+      if(free_size == 0){
+        return static_cast<LocalPageHandle>(0);
+      }
+      else{
+        size_t index = free_index;
+        free_size --; 
+        if(free_size > 0)
+          for(size_t i = free_index+1; i < pages.size(); i++){
+            if(!pages[i]){
+              free_index = i;
+              break;
+            }
+          }
+        return index;
+      }
+    }
+  };
 
   HashMap<FileHandle, FilePtr> file_;
-  HashMap<ComposeHandle, PageMeta> page_;
-  MemPool<ComposeHandle> pool_; // no control over page retire // not sequential
-  BuzyQueue<PageHandle> buzy_; // control over page retire
+  HashMap<PageHandle, Page> page_;
+  MemPool<PageHandle> pool_; // no control over page retire // not sequential
 
  public:
   PageManager() = default;
   ~PageManager(){ };
-  // on file
-  Status NewFile(FileMeta file, FileHandle& handle);
+  // File Interface // 
+  Status NewFile(File file, FileHandle& handle);
   Status CloseFile(FileHandle file);
   Status DeleteFile(FileHandle file);
-  // on page
-  Status Get(ComposeHandle handle, RuntimeAccessMode mode, char*& ret){
-    bool bool_ret;
-    Status status_ret;
-    if(mode == kFailAccess)return Status::Corruption("Invalid access mode.");
-    else if(mode == kReadOnly || mode == kLazyModify){ // no pooling detail
-      PageMeta page_meta;
-      bool_ret = page_.Get(handle, page_meta);
-      if(!bool_ret){
-        return Status::InvalidArgument("Page not encoded.");
-      }
-      if(pool_.pooling(handle)){
-        ret = pool_.get_ptr(handle);
-        return Status::OK();
-      }
-      else{
-        status_ret = Pool(handle);
-        if(!status_ret.ok())return Status::IOError("Fail pool page.");
-        ret = pool_.get_ptr(handle);
-      }
-    }
-    else if(mode == kFatalModify){
-      PageMeta page_meta;
-      bool_ret = page_.Get(handle, page_meta);
-      if(!bool_ret){
-        return Status::InvalidArgument("Page not encoded.");
-      }
-      // write lock
-      if(pool_.pooling(handle)){ // write to pool first
-
-      }
-      else{ // consistency: 
-        // mem pool synchronic
-        // add additional read lock
-        // direct write
-        // mem pool retire
-      }
-      // direct write
-
-    }
-    else{
-      return Status::InvalidArgument("Unsupported access mode.")
-    }
-  }
-  Status Pool();
-  Status PoolByCopy();
-  Status PoolByMap();
-
-  Status NewPage(FileHandle file, DataCursor ptr = DataCursor::NilCursor());
-  Status AppendPage(FileHandle file, PageHandle& handle, DataCursor ptr = DataCursor::NilCursor());
-  // no intention to pooling page in memory
-  Status ReadByCopy(PageHandle page, char*& ret_ptr, DataCursor ptr = DataCursor::NilCursor());
-  // forced pooling page
-  Status ReadByReference(PageHandle page, char*& ret_ptr, DataCursor ptr = DataCursor::NilCursor());
-  // for lru
-  Status DecrReference(PageHandle page); // atomic needed
-  // still pooling
-  Status WriteAndCommit(PageHandle page, char* data_ptr, DataCursor ptr = DataCursor::NilCursor());
-  Status WriteToPool(PageHandle page, char* data_ptr, DataCursor ptr = DataCursor::NilCursor());
-  Status Commit(PageHandle page);
-  Status Unpool(PageHandle page);
-
-  Status New(FileHandle file, PageHandle& handle);
-  Status New(FileHandle file, size_t size, PageHandle& handle);
-  Status Read(PageHandle page, char*& ret_ptr);
-  Status Read(PageHandle page, size_t page_offset, size_t size, char*& ret_ptr);
-  Status Write(PageHandle page, char* data_ptr);
-  Status Write(PageHandle page, char* data_ptr, size_t size);
-  Status Flush(PageHandle page){return FlushPage(page);}
-  // page accessor
-  inline PageType type(PageHandle page){
-    if(page >= page_.size())return kInvalidPage;
-    else return page_[page].type;
-  }
- private:
-  // mem pool interface
-  Status FlushPage(PageHandle page);
-  Status FlushPage(void);
-  // disk interface
-  Status DirectWritePage(PageHandle page, char* data_ptr);
-  Status DirectWritePage(PageHandle page, char* data_ptr, size_t size);
+  // Page Interface //
+  Status NewPage(FileHandle file, PageHandle& handle);
+  Status Pool(PageHandle handle); // pool if not, assert(not commited > modified && inPool)
+  Status Flush(PageHandle handle); // flush if commited < modified
+  Status Expire(PageHandle handle);
+ protected:
+  Latch* GetLatch(PageHandle handle);
+  size_t GetSize(PageHandle handle);
+  char* GetPageDataPtr(PageHandle handle);
 };
 
 } // namespace sbase

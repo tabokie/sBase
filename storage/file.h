@@ -28,6 +28,7 @@ struct FileMeta{
     blockSize = that.blockSize;
     access = that.access;
   }
+  FileMeta():fileName(nullptr){ }
   ~FileMeta(){ }
 };
 
@@ -52,6 +53,8 @@ class WritableFile{
   size_t file_end_;
  public:
   WritableFile(FileMeta file):file_(file),file_end_(0){ }
+  WritableFile():file_end_(0){ }
+  bool Empty(void){return file_end_ == 0;}
   virtual ~WritableFile(){ };
   virtual Status Open(void) = 0;
   virtual Status Close(void) = 0;
@@ -69,6 +72,7 @@ class WritableFile{
 class SequentialFile : public WritableFile{
  public:
   SequentialFile(FileMeta file):WritableFile(file){ }
+  SequentialFile():WritableFile(){ }
   ~SequentialFile(){ }
   Status Read(size_t offset, char* alloc_ptr);
   Status Read(size_t offset, char* alloc_ptr, size_t size);

@@ -1,6 +1,8 @@
 #ifndef SBASE_STORAGE_LATCH_HPP_
 #define SBASE_STORAGE_LATCH_HPP_
 
+#include "util/utility.hpp"
+
 #include <thread>
 #include <mutex>
 #include <atomic> // try use no lock method
@@ -8,7 +10,7 @@
 
 namespace sbase{
 
-class Latch{
+class Latch: public NonCopy{
 	// reader
 	std::atomic<size_t> readers_;
 	std::mutex r_mutex_;
@@ -81,8 +83,11 @@ public:
 			cond_r_.notify_all();
 		}
 	}
-};
+	bool occupied(void){
+		return readers_ > 0 || weak_writers_ > 0 || strong_writers_ > 0;
+	}
+}; // class Latch
 
-}
+} // namespace sbase
 
 #endif // SBASE_STORAGE_LATCH_HPP_
