@@ -6,6 +6,7 @@
 #include "./storage/mempool.hpp"
 #include "./util/buzy_queue.hpp"
 #include "./util/utility.hpp"
+#include "./storage/page.hpp"
 
 #include <vector>
 #include <cassert>
@@ -25,27 +26,7 @@ const size_t kLocalPageHandleWid = 3;
 typedef uint8_t PageSizeType;
 const size_t kPageSizeWid = 1;
 
-enum PageType{
-  kEmptyPage = 0,
-  kBFlowTablePage = 1,
-  kBPlusIndexPage = 2,
-  kBIndexPage = 3
-};
-
-class Page: public NonCopy{
-  PageHandle handle;
-  shared_ptr<File> file;
-  Latch latch;
-  PageType type;
-  Timestamp modified;
-  Timestamp commited;
- public:
-  Page(const File& f, PageHandle h):file(f), handle(h){ }
-  ~Page(){ }
-  bool Referenced(void){
-    return latch.occupied();
-  }
-};
+#define LocalPage2Page(f_, p_)      (static_cast<PageHandle>(f_)<<kLocalPageHandleWid + static_cast<PageHandle>(p_) )  
 
 enum RuntimeAccessMode{
   kFailAccess = 0,
@@ -70,7 +51,6 @@ struct PageRef{
   PageHandle handle;
   // FileHandle file;
   DeducedRuntimeAccessMode mode;
-
  public:
   char* ptr;
   PageRef(PageManager* manage, PageHandle page, RuntimeAccessMode rmode):
@@ -132,8 +112,7 @@ struct PageRef{
     }
   }
 
-
-};
+}; // class PageRef
 
 // caller shouldnt know detail about file offset and size
 class PageManager{ // for unreferenced page, ready to retire
@@ -141,21 +120,34 @@ public:
 
   using FilePtr = shared_ptr<WritableFile>;
   using PagePtr = shared_ptr<Page>;
-  struct PageWrapper{
+  struct FileWrapper: public NonCopy{ // only ctrl over vector
     FilePtr file;
+    Latch latch;
     std::vector<PagePtr> pages;
-    size_t free_index;
-    size_t free_size;
+    std::atomic<size_t> free_index;
+    std::atomic<size_t> free_size;
+    std::atomic<size_t> size;
     PageWrapper(FilePtr f):file(f),free_index(0),free_size(0){ }
     ~PageWrapper(){ }
-    void AddPage(PagePtr p){
+    PagePtr operator[](size_t idx){
+      if(idx >= size )return nullptr;
+      return pages[idx];
+    }
+    LocalPageHandle AddPage(PagePtr p){
+      size_t ret;
+      latch.WeakWriteLock();
+      pages.push_back(p);
+      ret = static_cast<LocalPageHandle>(pages.size());
+      latch.ReleaseWeakWriteLock();
       if(!p){
-        free_size++;
         if(free_size == 0)
           free_index = pages.size();
+        free_size++;
       }
-      pages.push_back(p);
+      size++;
+      return ret;
     }
+    // 0 is always for meta data, return 0 if no free
     LocalPageHandle GetFree(void){
       if(free_size == 0){
         return static_cast<LocalPageHandle>(0);
@@ -174,9 +166,9 @@ public:
       }
     }
   };
+  using FileWrapperPtr = shared_ptr<FileWrapper>;
 
-  HashMap<FileHandle, FilePtr> file_;
-  HashMap<PageHandle, Page> page_;
+  HashMap<FileHandle, FileWrapperPtr> file_;
   MemPool<PageHandle> pool_; // no control over page retire // not sequential
 
  public:
@@ -192,7 +184,8 @@ public:
   Status Flush(PageHandle handle); // flush if commited < modified
   Status Expire(PageHandle handle);
  protected:
-  Latch* GetLatch(PageHandle handle);
+  Latch* GetPageLatch(PageHandle handle);
+  Latch* GetFileLatch(FileHandle handle);
   size_t GetSize(PageHandle handle);
   char* GetPageDataPtr(PageHandle handle);
 };

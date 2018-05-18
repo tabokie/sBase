@@ -40,7 +40,7 @@ Status PageManager::DeleteFile(FileHandle file){
 }
 
 Status PageManager::NewPage(FileHandle fh, PageHandle& ret){
-  FilePtr f = nullptr;
+  FileWrapperPtr f = nullptr;
   auto bool_ret = file_.Get(fh, f);
   if(bool_ret && !f){
     return Status::Corruption("File corrupted.");
@@ -49,12 +49,18 @@ Status PageManager::NewPage(FileHandle fh, PageHandle& ret){
     return Status::InvalidArgument("File not exist.");
   }
   else{
-    PagePtr p = f->GetFreePage();
-    if(!p){
-      // append
+    LocalPageHandle free = f->GetFree();
+    if(free == 0){
+      if(!f->file)return Status::Corruption("File pointer corrupted.");
+      size_t fsize = f->file->GetSize();
+      size_t blocksize = f->file->GetBLockSize();
+      fsize = (fsize / blocksize + 1) * blocksize;
+      f->file->SetEnd(fsize);
+      // add new page
+      ret = f->AddPage()
     }
     else{
-      ret = p->handle;
+      ret = LocalPage2Page(fh, free);
     }
     return Status::OK();
   }
@@ -77,7 +83,17 @@ Status PageManager::Expire(PageHandle ph){
 
 }
 
-Latch* PageManager::GetLatch(PageHandle ph){
+Latch* PageManager::GetFileLatch(FileHandle handle){
+  FileWrapperPtr f = nullptr;
+  auto bool_ret = file_.Get(handle, f);
+  if(bool_ret && !f){return Status::Corruption("File corrupted.");}
+  else if(bool_ret)return Status::InvalidArgument("File not existed.");
+  else{
+    return f->latch;
+  }
+}
+
+Latch* PageManager::GetPageLatch(PageHandle ph){
 
 }
 
