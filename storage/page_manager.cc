@@ -3,43 +3,32 @@
 namespace sbase{
 
 // File Interface //
-Status PageManager::NewFile(FileMeta file, FileHandle& handle){
-  FileHandle fhandle = file_.size()+1;
-
-  if(file.access == kSequential ){
-    FilePtr f = make_shared<SequentialFile>(file);
-    // SequentialFile f(file);
-    if(!f->Open().ok())return Status::IOError("Cannot Open Sequential File");
-    file_.push_back(f);
-  }
-  else if(file.access == kRandom){
-    FilePtr f = make_shared<RandomAccessFile>(file);
-    if(!f->Open().ok())return Status::IOError("Cannot Open Random File");
-    file_.push_back(f);
-  }
-  else{
-    return Status::InvalidArgument("Invalid Access Mode");
-  }
-  handle = fhandle;
+Status PageManager::NewFile(std:string name, FileHandle& hFile){
+  FileHandle fhandle = GetAvailableFileHandle();
+  FilePtr f = make_shared<SequentialFile>(name);
+  if(!f->Open().ok())return Status::IOError("Cannot Open Sequential File");
+  file_.Insert(fhandle, f);
+  hFile = fhandle;
   return Status::OK();
 }
-Status PageManager::CloseFile(FileHandle file){
-  if(file < 1 || file > file_.size())return Status::InvalidArgument("File Handle Flow");
-  for(FileHandle i = 1; i <= static_cast<FileHandle>(page_.size()); i++){
-    if(page_[i-1].file == file){
-      FlushPage(i); // !assert(OK())
-    }
-  }
-  auto f = file_[file-1];
+Status PageManager::CloseFile(FileHandle hFile){
+  FilePtr f = nullptr;
+  if(!file_.Get(hFile, f))return Status::InvalidArgument("File handle invalid.");
+
+  // handle in memory page //
+
   return f->Close();
 }
-Status PageManager::DeleteFile(FileHandle file){
-  if(file < 1 || file > file_.size())return Status::InvalidArgument("File Handle Flow");
-  auto f = file_[file-1];
+Status PageManager::DeleteFile(FileHandle hFile){
+  FilePtr f = nullptr;
+  if(!file_.Get(hFile, f))return Status::InvalidArgument("File handle invalid.");
+
+  // handle in memory page //
+
   return f->Delete();
 }
 
-Status PageManager::NewPage(FileHandle fh, PageHandle& ret){
+Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
   FileWrapperPtr f = nullptr;
   auto bool_ret = file_.Get(fh, f);
   if(bool_ret && !f){
@@ -57,30 +46,52 @@ Status PageManager::NewPage(FileHandle fh, PageHandle& ret){
       fsize = (fsize / blocksize + 1) * blocksize;
       f->file->SetEnd(fsize);
       // add new page
-      ret = f->AddPage()
+      ret = f->AddPage(make_shared<Page>(*(f->file)));
     }
     else{
-      ret = LocalPage2Page(fh, free);
+      ret = GetPageHandle(fh, free);
     }
     return Status::OK();
   }
 }
 
-Status PageManager::Pool(PageHandle ph){
-  if(pool_.inPool(ph)){
-
+Status PageManager::PoolFromDisk(PageHandle hPage){
+  FileWrapperPtr f = nullptr;
+  file_.Get(hPage, f);
+  PagePtr p = nullptr;
+  if(!f)return Status::InvalidArgument("File not exist.");
+  if(!(p = (*f)[hPage]))return Status::InvalidArgument("Page not exist.");
+  if(pool_.inPool(hPage)){
+    assert(p->commited <= p->modified); // page in pool is newer than disk
   }
   else{
-    PagePtr
+    // get ptr from pool
+    // read from disk
+  }
+  return Status::OK();
+}
+
+Status PageManager::Flush(PageHandle hPage){
+  FileWrapperPtr f = nullptr;
+  file_.Get(hPage, f);
+  PagePtr p = nullptr;
+  if(!f)return Status::InvalidArgument("File not exist.");
+  if(!(p = (*f)[hPage]))return Status::InvalidArgument("Page not exist.");
+  if(!pool_.inPool(hPage)){
+    assert(p->commited >= p->modified); // page on disk is new enough
+    return Status::OK();
+  }
+  else if(p->commited < p->modified){ // need flush
+    // write disk using pooling ptr
+    char* data = pool_.Get(hPage);
+    return f->file->Write(data);
   }
 }
 
-Status PageManager::Flush(PageHandle ph){
-
-}
-
-Status PageManager::Expire(PageHandle ph){
-
+Status PageManager::Expire(PageHandle hPage){
+  auto ret = Flush(hPage);
+  if(!ret.ok())return ret;
+  pool_.Delete(hPage);
 }
 
 Latch* PageManager::GetFileLatch(FileHandle handle){
@@ -93,15 +104,15 @@ Latch* PageManager::GetFileLatch(FileHandle handle){
   }
 }
 
-Latch* PageManager::GetPageLatch(PageHandle ph){
+Latch* PageManager::GetPageLatch(PageHandle hPage){
 
 }
 
-size_t PageManager::GetSize(PageHandle ph){
+size_t PageManager::GetSize(PageHandle hPage){
 
 }
 
-char* PageManager::GetPageDataPtr(PageHandle ph){
+char* PageManager::GetPageDataPtr(PageHandle hPage){
 
 }
 

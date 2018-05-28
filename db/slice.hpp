@@ -24,14 +24,27 @@ using std::vector;
 using std::function;
 using std::string;
 
-// from string
-// from explicit
-// to string
-// to blob
-
 namespace sbase{
 
-
+// Field //
+class Schema: public ClassDef{
+	 template<typename attr_iterator>
+	Schema(ClassDef const* base, std::string name, attr_iterator attrBegin, attr_iterator attrEnd):
+		ClassDef(base,name,attrBegin,attrEnd){ } 
+	Schema(ClassDef const* base, std::string name):ClassDef(base,name){ }
+	bool GetPrimary(AttributeContainer& ret){
+		bool flag = false;
+		for(auto& attr : effective_attr_){
+			if(attr.tag_.isPrimary){
+				ret.push_back(attr);
+				flag = true;
+			}
+		}
+		return flag;
+	}
+}
+typedef Field ClassDef;
+typedef Slice Object;
 
 }
 

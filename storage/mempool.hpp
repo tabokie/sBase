@@ -105,6 +105,7 @@ class MemPool{
     }
   }
   Status Delete(HandleType handle){
+    latch.WeakWriteLock();
     size_t idx;
     auto bool_ret = pool_.DeleteOnGet(handle, idx);
     if(bool_ret){
@@ -113,6 +114,7 @@ class MemPool{
       else
         free_.push_back(idx);
     }
+    latch.ReleaseWeakWriteLock();
     return Status::OK();
   }
   // Accessor //
@@ -135,8 +137,10 @@ class MemPool{
       if(blocks_[free_[idx0]].size > blocks_[free[idx1]].size)idx = idx1;
     }
     size_t pageIdx = free_[idx];
+    latch.WeakWriteLock();
     free_.erase(free_.begin() + idx);
     blocks_.erase(blocks_.begin() + pageIdx);
+    latch.ReleaseWeakWriteLock();
     return true;
   }
 }; // class MemPool

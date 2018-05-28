@@ -230,7 +230,6 @@ class Value{
 
 };
 
-
 // Class and Object //
 class Attribute{
 	std::string attr_name_;
@@ -259,11 +258,12 @@ class Attribute{
 class Object;
 
 class ClassDef{
+ protected:
 	using AttributeContainer = std::vector<Attribute>;
 	using AttributeIterator = std::vector<Attribute>::const_iterator;
 	// attributes
 	std::vector<Attribute> attr_;
-	std::vector<Attribute> effective_attr_;
+	std::vector<Attribute> effective_attr_; // include full attr
 	// base inheritence
 	ClassDef const* base_;
 	// flag
@@ -331,7 +331,7 @@ class ClassDef{
 	void setUnfix(void) const{definition_fix_ = true;}
 	Object* NewObject(void)const;
 
- private:
+ protected:
  	void BaseInit(void){
  		if(base_){
  			base_->setUnfix();

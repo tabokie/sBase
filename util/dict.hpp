@@ -20,6 +20,14 @@ class AutoDict{
   std::vector<T> word_;
 
  public:
+  // for sake of Consistency
+  // AutoDict(const initializer_list<T> &v){
+  //   for(auto& item : v){
+  //     size_ ++;      
+  //     word_.push_back(item);
+  //     map_.Insert(item, size_);
+  //   }
+  // }
   template <class ...Args>
   AutoDict(Args... args):size_(0),map_(){ 
     size_ = sizeof...(args);
@@ -70,7 +78,7 @@ class Dict{
   template <class ...Args>
   Dict(Args... args):size_(0),k2d_(sizeof...(args)),d2k_(sizeof...(args)){ 
     ArgsInit(args...);
-  }  
+  }
   ~Dict(){ }
 
   // get data from key

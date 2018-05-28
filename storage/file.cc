@@ -5,7 +5,6 @@ namespace sbase{
 #if defined(__WIN32) || defined(__WIN64)
 
 // Base Type :: Writabel File //
-
 Status WritableFile::Open(void){
   fhandle_ = CreateFile(file_.filename, 
     GENERIC_READ | GENERIC_WRITE, 
@@ -30,15 +29,9 @@ Status WritableFile::Delete(void){
 }
 
 // Derived Type :: Sequential File //
-
-Status SequentialFile::Read(size_t offset, char* alloc_ptr) {
-  return Read_(offset, alloc_ptr, file_.block_size);
-}
-Status SequentialFile::Read(size_t offset, char* alloc_ptr, size_t size) {
-  if(size > file_.block_size)size = file_.block_size;
-  return Read_(offset, alloc_ptr, size);
-}
-inline Status SequentialFile::Read_(size_t offset, char* alloc_ptr, size_t size){
+Status SequentialFile::Read_(size_t offset, size_t size, char* alloc_ptr){
+  if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
+  if(offset + size >= file_end_)return Status:InvalidParameter("Exceed file length.");
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -54,14 +47,10 @@ inline Status SequentialFile::Read_(size_t offset, char* alloc_ptr, size_t size)
   if(!rfRes)return Status::IOError("Read File Failed");
   return Status::OK();
 }
-Status SequentialFile::Flush(size_t offset, char* data_ptr){
-  return Flush_(offset, data_ptr, file_.block_size); 
-}
-Status SequentialFile::Flush(size_t offset, char* data_ptr, size_t size) {
-  if(size > file_.block_size)size = file_.block_size;
-  return Flush_(offset, data_ptr, size);
-}
-inline Status SequentialFile::Flush_(size_t offset, char* data_ptr, size_t size) {
+Status SequentialFile::Flush(size_t offset, size_t size, char* data_ptr) {
+  if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
+  if(offset >= file_end_)return Status:OK();
+  if(offset + size >= file_end_)size = file_end_;
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -78,20 +67,21 @@ inline Status SequentialFile::Flush_(size_t offset, char* data_ptr, size_t size)
   return Status::OK();
 }
 
-Status SequentialFile::Append(size_t offset) {
+Status SequentialFile::SetEnd(size_t offset) {
   DWORD dwPtr = SetFilePointer(fhandle_, \
-    offset+file_.block_size, \
+    offset, \
     NULL, \
     0); // 0 for starting from beginning
   DWORD dwError;
   if(dwPtr == INVALID_SET_FILE_POINTER \
     && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
   SetEndOfFile(fhandle_);
-  file_end_ = offset + file_.block_size;
+  file_end_ = offset;
   // SetFileValidData(fhandle_, offset+block_size_)
   return Status::OK();
 }
 
+/*
 // Derived Type :: RandomAccessFile //
 
 Status RandomAccessFile::Read(size_t offset, char* alloc_ptr) {
@@ -158,10 +148,9 @@ Status RandomAccessFile::Append(size_t offset){
   file_end_ = offset + file_.block_size;
   return Status::OK();
 }
+*/
 
-
-#endif
-
+#endif // __WINXX
 
 #if defined(__linux)
 
@@ -173,6 +162,6 @@ class RandomAccessFile : public WritableFile{
 
 };
 
-#endif
+#endif // __linux
 
 }

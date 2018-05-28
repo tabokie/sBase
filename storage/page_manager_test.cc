@@ -9,7 +9,7 @@
 using namespace std;
 using namespace sbase;
 
-TEST(PageManagerTest, NewCloseFileTest){
+TEST(PageManagerTest, FileTest){
 	PageManager pager;
 	for(int i = 0; i<100; i++){
 		string name = string("pager_test")+to_string(i);
@@ -21,7 +21,7 @@ TEST(PageManagerTest, NewCloseFileTest){
 	}
 }
 
-TEST(PageManagerTest, WriteReadFileTest){
+TEST(PageManagerTest, PageTest){
 	size_t len = 200;
 	PageManager pager;
 	FileMeta meta("testIO", len, kSequential);
@@ -33,7 +33,7 @@ TEST(PageManagerTest, WriteReadFileTest){
 	PageHandle page;
 	Status status;
 
-	status = pager.New(file,kBflowTablePage, page);	
+	status = pager.NewPage(file,kBflowTablePage, page);	
 	if(!status.ok()){
 		cout << status.ToString() << endl << flush;
 		exit(0);
@@ -48,7 +48,6 @@ TEST(PageManagerTest, WriteReadFileTest){
 		cout << status.ToString() << endl << flush;
 		exit(0);
 	}
-
 	char* ret;
 	EXPECT_TRUE(pager.Read(page, ret).ok());
 	for(int i = 0; i<len; i++)EXPECT_EQ(data[i], ret[i]);
@@ -56,3 +55,16 @@ TEST(PageManagerTest, WriteReadFileTest){
 	ASSERT_TRUE(pager.DeleteFile(file).ok());
 }
 
+void ParallelRefTest_read_thread(void){
+
+}
+void ParallelRefTest_write_thread(void){
+
+}
+void ParallelRefTest_fatal_write_thread(void){
+
+}
+
+TEST(PageManagerTest, ParallelRefTest){
+
+}
