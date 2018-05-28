@@ -92,23 +92,33 @@ public:
   Status CloseFile(FileHandle hFile);
   Status DeleteFile(FileHandle hFile);
   // Page Interface //
+  // Construct
   Status NewPage(FileHandle hFile, PageType type, PageHandle& hPage);
   Status DeletePage(FileHandle hFile);
+  // Synchronic 
   // Function: Mem >= File
   Status SyncFromFile(PageHandle hPage);
   // Function: File >= Mem
   Status SyncFromMem(PageHandle hPage); // flush if commited < modified
-  Status Pool(PageHandle hPage);
-  Status Expire(PageHandle hPage); // expire on flush
+  // Memory
+  Status Pool(PageHandle hPage); // do LRU here
+  Status Expire(PageHandle hPage); // flush and expire
   // Public Accessor //
-  size_t GetSize(PageHandle hPage);
+  size_t GetFileSize(FileHandle hFile);
+  size_t GetPageSize(PageHandle hPage);
   char* GetPageDataPtr(PageHandle hPage); 
  protected:
   Latch* GetPageLatch(PageHandle hPage);
   Latch* GetFileLatch(FileHandle hFile);
  private:
+  // Mem ~ File
+  Status FlushToDisk(PageHandle hPage);
   Status PoolFromDisk(PageHandle hPage); // pool if not, assert(if inPool then commited<modified)
   Status PoolFromMmap(PageHandle hPage) = delete;
+  // helper
+  inline PagePtr GetPage(PageHandle hPage);
+  inline FilePtr GetFile(FileHandle hFile);
+  inline FileWrapperPtr GetFileWrapper(FileHandle hFile);
 }; // class PageManager
 
 } // namespace sbase

@@ -27,7 +27,7 @@ Status PageManager::DeleteFile(FileHandle hFile){
 
   return f->Delete();
 }
-
+// Construct Page //
 Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
   FileWrapperPtr f = nullptr;
   auto bool_ret = file_.Get(fh, f);
@@ -54,7 +54,87 @@ Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
     return Status::OK();
   }
 }
+Status PageManager::DeletePage(PageHandle hPage){
 
+}
+// Sync on Page //
+Status PageManager::SyncFromFile(PageHandle hPage){
+  PagePtr p = GetPage(hPage);
+  if(!p)return Status::InvalidArgument("Page not found.");
+  // file is newer
+  if(p->commited > p->modified)return PoolFromDisk(hPage);
+  return Status::OK();
+}
+Status PageManager::SyncFromMem(PageHandle hPage){
+  PagePtr p = GetPage(hPage);
+  if(!p)return Status::InvalidArgument("Page not found.");
+  // mem is newer
+  if(p->commited < p->modified)return FlushToDisk(hPage);
+  return Status::OK();
+}
+// Memory //
+Status PageManager::Pool(PageHandle hPage){
+  PagePtr p = nullptr;
+  if(pool_.Get(hPage,p)){
+    return Status::OK();
+  }
+  // file -> mempool //
+  // do LRU here //
+}
+Status PageManager::Expire(PageHandle hPage){
+  auto ret = SyncFromMem(hPage);
+  if(!ret.ok())return ret;
+  // mempool expire //
+}
+// Accessor //
+size_t PageManager::GetFileSize(FileHandle hFile){
+
+}
+size_t PageManager::GetPageSize(PageHandle hPage){
+
+}
+char* PageManager::GetPageDataPtr(PageHandle hPage){
+
+}
+// protected
+Latch* GetPageLatch(PageHandle hPage){
+  PagePtr p = GetPage(hPage);
+  if(!p)return Status::InvalidArgument("Page not found.");
+  return p->latch;
+}
+Latch* GetFileLatch(FileHandle hFile){
+  FilePtr f = GetFile(hFile);
+  if(!f)return Status::InvalidArgument("File not found.");
+  return f->latch;
+}
+// private
+PagePtr PageManager::GetPage(PageHandle hPage){
+
+}
+FilePtr PageManager::GetFile(FileHandle hFile){
+
+}
+FileWrapperPtr PageManager::GetFileWrapperPtr(FileHandle hFile){
+
+}
+
+// private Mem~File //
+Status PageManager::FlushToDisk(PageHandle hPage){
+  FileWrapperPtr f = nullptr;
+  file_.Get(hPage, f);
+  PagePtr p = nullptr;
+  if(!f)return Status::InvalidArgument("File not exist.");
+  if(!(p = (*f)[hPage]))return Status::InvalidArgument("Page not exist.");
+  if(!pool_.inPool(hPage)){
+    assert(p->commited >= p->modified); // page on disk is new enough
+    return Status::OK();
+  }
+  else if(p->commited < p->modified){ // need flush
+    // write disk using pooling ptr
+    char* data = pool_.Get(hPage);
+    return f->file->Write(data);
+  }
+}
 Status PageManager::PoolFromDisk(PageHandle hPage){
   FileWrapperPtr f = nullptr;
   file_.Get(hPage, f);
@@ -71,50 +151,6 @@ Status PageManager::PoolFromDisk(PageHandle hPage){
   return Status::OK();
 }
 
-Status PageManager::Flush(PageHandle hPage){
-  FileWrapperPtr f = nullptr;
-  file_.Get(hPage, f);
-  PagePtr p = nullptr;
-  if(!f)return Status::InvalidArgument("File not exist.");
-  if(!(p = (*f)[hPage]))return Status::InvalidArgument("Page not exist.");
-  if(!pool_.inPool(hPage)){
-    assert(p->commited >= p->modified); // page on disk is new enough
-    return Status::OK();
-  }
-  else if(p->commited < p->modified){ // need flush
-    // write disk using pooling ptr
-    char* data = pool_.Get(hPage);
-    return f->file->Write(data);
-  }
-}
-
-Status PageManager::Expire(PageHandle hPage){
-  auto ret = Flush(hPage);
-  if(!ret.ok())return ret;
-  pool_.Delete(hPage);
-}
-
-Latch* PageManager::GetFileLatch(FileHandle handle){
-  FileWrapperPtr f = nullptr;
-  auto bool_ret = file_.Get(handle, f);
-  if(bool_ret && !f){return Status::Corruption("File corrupted.");}
-  else if(bool_ret)return Status::InvalidArgument("File not existed.");
-  else{
-    return f->latch;
-  }
-}
-
-Latch* PageManager::GetPageLatch(PageHandle hPage){
-
-}
-
-size_t PageManager::GetSize(PageHandle hPage){
-
-}
-
-char* PageManager::GetPageDataPtr(PageHandle hPage){
-
-}
 
 
 } // namespace sbase
