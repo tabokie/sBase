@@ -29,7 +29,7 @@ Status WritableFile::Delete(void){
 }
 
 // Derived Type :: Sequential File //
-Status SequentialFile::Read_(size_t offset, size_t size, char* alloc_ptr){
+Status SequentialFile::Read(size_t offset, size_t size, char* alloc_ptr){
   if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
   if(offset + size >= file_end_)return Status:InvalidParameter("Exceed file length.");
   DWORD dwPtr = SetFilePointer(fhandle_, 
@@ -47,7 +47,7 @@ Status SequentialFile::Read_(size_t offset, size_t size, char* alloc_ptr){
   if(!rfRes)return Status::IOError("Read File Failed");
   return Status::OK();
 }
-Status SequentialFile::Flush(size_t offset, size_t size, char* data_ptr) {
+Status SequentialFile::Write(size_t offset, size_t size, char* data_ptr) {
   if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
   if(offset >= file_end_)return Status:OK();
   if(offset + size >= file_end_)size = file_end_;

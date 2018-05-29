@@ -24,20 +24,12 @@ struct Page: public NonCopy{
   FileMeta* file;
   Latch latch;
   PageType type;
-  size_t count;
-  Timestamp referenced;
   Timestamp modified;
   Timestamp commited;
   Page(const FileMeta& f, PageHandle h = 0):file(f), handle(h){ }
   ~Page(){ }
-  bool Referenced(void){
+  inline bool Referenced(void){
     return latch.occupied();
-  }
-  double LRUWeight(void){
-    auto delta =  (Time::Now() - referenced) / kLRU_decr_factor;
-    double ret = count;
-    while(delta--)ret /= 2;
-    return ret;
   }
 };
 

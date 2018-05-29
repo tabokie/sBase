@@ -14,7 +14,8 @@ const size_t kPageHandleWid = 4;
 typedef uint32_t PageNum;
 const size_t kPageNumWid = 3;
 #define GetPageHandle(hFile, nPage)		(static_cast<PageHandle>(hFile)<<kLocalPageHandleWid + static_cast<PageHandle>(nPage) )
-#define GetPageNum(hPage) 									(static_cast<PageNum>(hPage & 0xffffff))
+#define GetPageNum(hPage) 						(static_cast<PageNum>(hPage & 0xffffff))
+#define GetFileHandle(hPage) 					(static_cast<FileHandle>(hPage >> 24))
 #pragma pack(1)
 struct FileHeader{
 	FileHandle hFileCode; // 0 for database core

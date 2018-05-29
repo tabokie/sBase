@@ -59,7 +59,7 @@ struct PageRef: public NonCopy{
         // block other write
         auto latch = manager->GetLatch(handle);
         latch->WeakWriteLock();
-        manager->SyncFromFile(handle);
+        manager->SyncFromFile(handle, false);
         size_t size = manager->GetSize(handle);
         // self init ptr
         ptr = new char[size];
@@ -83,9 +83,9 @@ struct PageRef: public NonCopy{
       }
       else if(mode == kModifyByFile){
         // write to file
-        manager->WriteFile(handle, ptr);
+        manager->DirectWrite(handle, ptr, false);
         // expire pool        
-        manager->Expire(handle);
+        manager->Expire(handle, false);
         auto latch = manager->GetLatch(handle);
         latch->ReleaseWeakWriteLock();
         delete [] ptr;

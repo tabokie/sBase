@@ -22,44 +22,8 @@ class MemPool{
   using HandleType = _ET;
  private:
   struct PtrWrapper{
-    char* ptr;
-    size_t size;
-    bool alloc; // true for heap allocated
-    // for LRU
-    MinTimeType last_decr;
-    uint8_t count;
-    // for consistency logging
-    MinTimeType last_commit;
-    MinTimeType last_modify;
-    PtrWrapper(char* p, size_t s):
-      ptr(p),size(s),alloc(false)
-      last_decr(Time::Now_min()),count(1),
-      last_commit(0),last_modify(0){
-      if(!ptr){
-        alloc = true;
-        ptr = new char[size];
-      }
-      assert(ptr);
-    }
-    // only one unique master responsible for memory free
-    PtrWrapper(const PtrWrapper& that):ptr(that.ptr),size(that.size),
-      last_decr(that.last_decr),count(that.count),
-      last_commit(that.last_commit),last_modify(that.last_modify){ }
-    PtrWrapper(const PtrWrapper const* thatp) = delete; // non ptr copy
-    inline void Incr(void){
-      Update();
-      if(count == 255)return ;
-      double random_checker = Random::getDoubleRand();
-      double base = count - 1;
-      if(base < 0)base = 0;
-      double p = 1.0 / (base * 2.0 + 1);
-      if(r < p) count ++;
-    }
-    inline void Update(void){
-      int addition_time = Time::Now_min() - last_decr;
-      while(addition_time -- && count > 0)count /= 2;
-    }
-    ~PtrWrapper(){if(alloc && ptr) delete [] ptr;}
+
+
   };
   using PtrWrapperPtr = shared_ptr<PtrWrapper>;
   Latch latch; // for now
@@ -70,7 +34,7 @@ class MemPool{
  public:
   MemPool() = default;
   ~MemPool(){ }
-  Status Add(HandleType handle, char*& ptr, size_t size){
+  Status Add(HandleType handle, size_t size, char*& ptr){
     latch.WeakWriteLock();
     if(!ptr){
       for(int i = 0; i< free_.size(; i++)){
