@@ -6,7 +6,7 @@ namespace sbase{
 
 // Base Type :: Writabel File //
 Status WritableFile::Open(void){
-  fhandle_ = CreateFile(file_.filename, 
+  fhandle_ = CreateFile(fileName.c_str(), 
     GENERIC_READ | GENERIC_WRITE, 
     0,  // share mode
     NULL,  // security
@@ -24,14 +24,17 @@ Status WritableFile::Close(void){
 }
 
 Status WritableFile::Delete(void){
-  if(!DeleteFile(file_.filename))return Status::IOError("Cannot Delete File");
+  if(!DeleteFile(fileName.c_str())){
+    std::cout << "<" << GetLastError() << ">" << std::endl;
+    return Status::IOError("Cannot Delete File");
+  }
   return Status::OK();
 }
 
 // Derived Type :: Sequential File //
 Status SequentialFile::Read(size_t offset, size_t size, char* alloc_ptr){
-  if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
-  if(offset + size >= file_end_)return Status:InvalidParameter("Exceed file length.");
+  if(!alloc_ptr)return Status::InvalidArgument("Null data pointer.");
+  if(offset + size > file_end_)return Status::InvalidArgument("Exceed file length.");
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -48,8 +51,8 @@ Status SequentialFile::Read(size_t offset, size_t size, char* alloc_ptr){
   return Status::OK();
 }
 Status SequentialFile::Write(size_t offset, size_t size, char* data_ptr) {
-  if(!data_ptr)return Status::InvalidParameter("Null data pointer.");
-  if(offset >= file_end_)return Status:OK();
+  if(!data_ptr)return Status::InvalidArgument("Null data pointer.");
+  if(offset >= file_end_)return Status::OK();
   if(offset + size >= file_end_)size = file_end_;
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 

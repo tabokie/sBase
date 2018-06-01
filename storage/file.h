@@ -1,9 +1,11 @@
 #ifndef SBASE_STORAGE_FILE_H_
 #define SBASE_STORAGE_FILE_H_
 
-#include "status.h"
+#include "./util/status.hpp"
+#include "./storage/file_format.hpp"
 #include <string>
 #include <iostream>
+#include <memory>
 
 
 namespace sbase{
@@ -40,13 +42,12 @@ class WritableFile{
  protected:
   OsFileHandle fhandle_;
   size_t file_end_;
- public:
   // extern data
-  std::string fileName;
-  FileHandle fileCode;
-  size_t blockSize;
-
-  WritableFile(const char* name):fileName(name),file_end_(0),blockSize(0),fileCode(0){ }
+  const std::string fileName;
+ public:
+  using WritableFilePtr = std::shared_ptr<WritableFile>;
+  WritableFile(const char* name):fileName(name),file_end_(0){ }
+  WritableFile(const std::string name):fileName(name),file_end_(0){ }
   WritableFile():file_end_(0){ }
   bool Empty(void){return file_end_ == 0;}
   virtual ~WritableFile(){ };
@@ -56,18 +57,16 @@ class WritableFile{
   virtual Status Read(size_t offset, size_t size, char* alloc_ptr) = 0;
   virtual Status Write(size_t offset, size_t size, char* data_ptr) = 0;
   virtual Status SetEnd(size_t offset) = 0;
-  inline const std::string name(void) const{return file_.fileName;}
+  inline const std::string name(void) const{return fileName;}
   inline size_t size(void) const{return file_end_;}
 };
 
 class SequentialFile : public WritableFile{
  public:
   SequentialFile(const char* name):WritableFile(name){ }
+  SequentialFile(const std::string name):WritableFile(name){ }
   SequentialFile():WritableFile(){ }
   ~SequentialFile(){ }
-  Status Open(void);
-  Status Close(void);
-  Status Delete(void);
   Status Read(size_t offset, size_t size, char* alloc_ptr);
   Status Write(size_t offset, size_t size, char* data_ptr);
   Status SetEnd(size_t offset);

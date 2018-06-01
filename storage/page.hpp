@@ -2,12 +2,14 @@
 #define SBASE_STORAGE_PAGE_HPP_
 
 #include "./util/utility.hpp"
-#include "./storage/latch.hpp"
+#include "./util/latch.hpp"
 #include "./util/time.hpp"
 #include "./storage/file.h"
+#include "./util/time.hpp"
 
 #include <memory>
-
+#include <cstdint>
+#include <memory>
 
 namespace sbase{
 
@@ -18,19 +20,23 @@ enum PageType{
   kBIndexPage = 3
 };
 
-double kLRU_decr_factor = 10;
 struct Page: public NonCopy{
+  using PagePtr = std::shared_ptr<Page>;
   PageHandle handle;
-  FileMeta* file;
+  const WritableFile* file;
   Latch latch;
   PageType type;
-  Timestamp modified;
-  Timestamp commited;
-  Page(const FileMeta& f, PageHandle h = 0):file(f), handle(h){ }
+  TimeType modified;
+  TimeType commited;
+  Page(const WritableFile& f, PageHandle h = 0):file(&f), handle(h){ }
   ~Page(){ }
-  inline bool Referenced(void){
-    return latch.occupied();
-  }
+  // 0 for referenced
+  inline uint64_t Rank(void){return (Referenced()) ? 0 : Time::Now()-modified ;}
+  inline bool Referenced(void){return latch.occupied();}
+  // modify <= GetDataPtr, FlushFromDisk
+  inline void Modify(void){modified = Time::Now();}
+  // commit <= WriteFile, FlushFromMem
+  inline void Commit(void){commited = Time::Now();}
 };
 
 } // namespace sbase

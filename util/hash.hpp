@@ -56,16 +56,24 @@ class HashMap{
   size_t size_;
   size_t occupied_;
   PairPtr* table_;
-  
- public:  
+  size_t iterate_helper_;
+ public:
   HashMap(size_t size = 50)
     :size_(size),occupied_(0){ 
     table_ = new PairPtr[size_];
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
   }
   ~HashMap(){ } // no delete ptr_object
+  KeyType IterateKeyNext(void){
+    while(iterate_helper_ < size_){
+      iterate_helper_++;
+      if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_-1])->key;
+    }
+    return KeyType(0);
+  }
 
   // insert element
+  // override duplicate
   bool Insert(KeyType key, ElementType element){
     PairPtr p = make_shared<PairType>(key, element);
     return Insert(key, p);
@@ -143,7 +151,10 @@ class HashMap{
     // quadratic proding
     do{
       if(!table_[cur] || table_[cur]->deleted)break;
-      if( table_[cur]->key == key)break;
+      if( table_[cur]->key == key){ // override
+        table_[cur] = p;
+        return true;
+      }
       cur = (cur+ 2*offset - 1) % size_;
       offset++;
     }while(cur != hash_val);
@@ -175,6 +186,7 @@ class HashMap{
         Insert(old_table[i]->key, old_table[i]);
     }
     delete [] old_table;
+    iterate_helper_ = 0;
     return true;
   }
 

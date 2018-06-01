@@ -3,13 +3,16 @@
 
 #include "./storage/file_format.hpp"
 #include "./storage/page_manager.h"
+#include "./util/error.hpp"
 
+#include <iostream>
+#include <cstdio>
 
 namespace sbase{
 
 
 enum RuntimeAccessMode{
-  kFailAccess = 0,
+  kEmptyAccess = 0,
   kReadOnly = 1,
   kLazyModify = 2,
   kFatalModify = 3 
@@ -36,31 +39,31 @@ struct PageRef: public NonCopy{
   char* ptr;
   PageRef(PageManager* manage, PageHandle page, RuntimeAccessMode rmode):
   handle(page),manager(manage),ptr(nullptr){
-    // file = page >> (kLocalPageHandleWid) * 8;
+    // LOG_FUNC();
     if(!manager)mode = kFailAccess;
     else{
       manager->Pool(handle); // assert(inPool || no modify process), safe to pool
       if(rmode == kReadOnly){
         mode = kReadOnlyByPool;
         // read lock
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->ReadLock();
         ptr = manager->GetPageDataPtr(handle);
       }
       else if(rmode == kLazyModify){
         mode = kModifyByPool; 
         // write lock
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->WriteLock();
         ptr = manager->GetPageDataPtr(handle);
       }
       else if(rmode == kFatalModify){
         mode = kModifyByFile;
         // block other write
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->WeakWriteLock();
         manager->SyncFromFile(handle, false);
-        size_t size = manager->GetSize(handle);
+        size_t size = manager->GetPageSize(handle);
         // self init ptr
         ptr = new char[size];
       }
@@ -68,17 +71,19 @@ struct PageRef: public NonCopy{
     }
   }
   ~PageRef(){
+    // LOG_FUNC();
     if(!manager && ptr){
-      Error("Page reference by a corrupted page manager.");
+      LOG("Page reference by a corrupted page manager.");
+      exit(0);
     }
     else if(ptr){
       if(mode == kReadOnlyByPool){
         // unlock
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->ReleaseReadLock();
       }
       else if(mode == kModifyByPool){
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->ReleaseWriteLock();
       }
       else if(mode == kModifyByFile){
@@ -86,7 +91,7 @@ struct PageRef: public NonCopy{
         manager->DirectWrite(handle, ptr, false);
         // expire pool        
         manager->Expire(handle, false);
-        auto latch = manager->GetLatch(handle);
+        auto latch = manager->GetPageLatch(handle);
         latch->ReleaseWeakWriteLock();
         delete [] ptr;
       }

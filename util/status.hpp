@@ -2,6 +2,7 @@
 #define SBASE_SUTILSTATUS_HPP_
 
 #include <string>
+#include <cassert>
 
 namespace sbase {
 

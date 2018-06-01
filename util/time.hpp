@@ -5,11 +5,11 @@
 #include <cstdint>
 
 
+using TimeType = uint64_t;
+using MinTimeType = uint8_t;
+
 class Time{
  public:
-	using TimeType = uint64_t;
-	using MinTimeType = uint8_t;
-
 	inline static uint64_t Now(void){
 		std::chrono::time_point<std::chrono::system_clock,std::chrono::milliseconds> tp = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());  
 	    auto tmp=std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch());  
@@ -22,6 +22,9 @@ class Time{
 		return static_cast<uint8_t>(Time::Now()>>4 & 0xff);
 	}
 };
+
+
+
 
 
 

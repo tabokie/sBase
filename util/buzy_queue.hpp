@@ -2,8 +2,8 @@
 #define SBASE_UTIL_BUZY_QUEUE_HPP_
 
 
-#include "hash.hpp"
-#include "status.h"
+#include "./util/hash.hpp"
+#include "./util/status.hpp"
 #include <memory>
 #include <iostream>
 

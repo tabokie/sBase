@@ -2,7 +2,7 @@
 
 
 #include "./storage/page_manager.h"
-
+#include "./storage/page_ref.hpp"
 
 #include <string>
 
@@ -11,47 +11,48 @@ using namespace sbase;
 
 TEST(PageManagerTest, FileTest){
 	PageManager pager;
-	for(int i = 0; i<100; i++){
+	for(int i = 0; i<10; i++){
 		string name = string("pager_test")+to_string(i);
-		FileMeta meta(name.c_str(), 200, kSequential);
 		FileHandle ret;
-		EXPECT_TRUE(pager.NewFile(meta, ret).ok());
-		EXPECT_TRUE(pager.CloseFile(ret).ok());
+		EXPECT_TRUE(pager.NewFile(name, 4, ret).ok());
 		EXPECT_TRUE(pager.DeleteFile(ret).ok());
 	}
 }
 
 TEST(PageManagerTest, PageTest){
-	size_t len = 200;
+	size_t len = 4096;
 	PageManager pager;
-	FileMeta meta("testIO", len, kSequential);
 	FileHandle file;
-	ASSERT_TRUE(pager.NewFile(meta, file).ok());
+	ASSERT_TRUE(pager.NewFile("test_io", 4, file).ok());
 
 	char* data = new char[len];
 	memset(data, 1, len);
 	PageHandle page;
 	Status status;
 
-	status = pager.NewPage(file,kBflowTablePage, page);	
+	status = pager.NewPage(file,kBFlowTablePage, page);	
 	if(!status.ok()){
 		cout << status.ToString() << endl << flush;
 		exit(0);
 	}
-	status = pager.Write(page, data, len);
+	status = pager.DirectWrite(page, data);
 	if(!status.ok()){
 		cout << status.ToString() << endl << flush;
 		exit(0);
 	}
-	status = pager.Flush(page);
-	if(!status.ok()){
-		cout << status.ToString() << endl << flush;
-		exit(0);
-	}
-	char* ret;
-	EXPECT_TRUE(pager.Read(page, ret).ok());
-	for(int i = 0; i<len; i++)EXPECT_EQ(data[i], ret[i]);
 	ASSERT_TRUE(pager.CloseFile(file).ok());
+	ASSERT_TRUE(pager.OpenFile("test_io", file).ok());
+	page = GetPageHandle(file, 1);
+	// status = pager.Expire(page);
+	// if(!status.ok()){
+	// 	cout << status.ToString() << endl << flush;
+	// 	exit(0);
+	// }
+	char* ret;
+	PageRef* ref = new PageRef(&pager, page, kReadOnly);
+	ret = ref->ptr;
+	for(int i = 0; i<len; i++)EXPECT_EQ(data[i], ret[i]);	
+	delete ref;
 	ASSERT_TRUE(pager.DeleteFile(file).ok());
 }
 

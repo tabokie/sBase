@@ -2,11 +2,13 @@
 #define SBASE_STORAGE_LATCH_HPP_
 
 #include "util/utility.hpp"
+#include "util/error.hpp"
 
 #include <thread>
 #include <mutex>
 #include <atomic> // try use no lock method
 #include <condition_variable>
+#include <iostream>
 
 namespace sbase{
 
@@ -31,24 +33,28 @@ public:
 		strong_writer_(false),weak_writer_(false){ }
 	~Latch(){ }
 	void ReadLock(void){ // strong writer
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(r_mutex_);
 		// wait means unlock and wait
 		cond_r_.wait( local, [=]()->bool {return !strong_writer_;} );
 		readers_ ++;
 	}
 	void WeakWriteLock(void){ // any writer
+		// LOG_FUNC();
 		weak_writers_ ++;
 		std::unique_lock<std::mutex> local(ww_mutex_);
 		cond_ww_.wait( local, [=]()->bool{ return !strong_writer_ && !weak_writer_; } );
 		weak_writer_ = true;
 	}
 	void WriteLock(void){ // strong writer and reader
+		// LOG_FUNC();
 		strong_writers_ ++;
 		std::unique_lock<std::mutex> local(w_mutex_);
 		cond_w_.wait(local, [=]()->bool{return !strong_writer_ && readers_ == 0;});
 		strong_writer_ = true;
 	}
 	void ReleaseReadLock(void){ // notify strong writer
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(r_mutex_);
 		if(--readers_ == 0){
 			// assert no writers
@@ -58,6 +64,7 @@ public:
 		}
 	}
 	void ReleaseWeakWriteLock(void){ // notify weak writer
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(ww_mutex_);
 		weak_writer_ = false;
 		weak_writers_ --;
@@ -70,6 +77,7 @@ public:
 		}
 	}
 	void ReleaseWriteLock(void){ // notify weak writer -> writer -> all reader
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(w_mutex_);
 		strong_writer_ = false;
 		strong_writers_ --;
