@@ -1,6 +1,8 @@
 #ifndef SBASE_STORAGE_PAGE_MANAGER_H_
 #define SBASE_STORAGE_PAGE_MANAGER_H_
 
+#include <cstring>
+
 #include "./util/status.hpp" 
 #include "./storage/file.h" // class WritableFile
 #include "./storage/mempool.hpp" // class MemPool
@@ -47,14 +49,15 @@ struct FileWrapper: public NonCopy{
   inline size_t size(void){return static_cast<int>(page_size);}
   // weak consistency
   inline PagePtr& operator[](size_t idx){
-    idx = idx & PageNumMask - 1; // safety
-    assert(idx >= 0 && idx < page_size);
-    return pages[idx];
+    PageNum inner = (idx & PageNumMask) - 1; // safety
+    assert(inner >= 0 && inner < page_size);
+    return pages[inner];
   }
   inline  PagePtr& GetPage(size_t idx){
     return (*this)[idx];
   }
   PageNum AddPage(PagePtr p){
+    // LOG_FUNC();
     size_t ret;
     // sync
     latch.WeakWriteLock();
@@ -77,11 +80,12 @@ struct FileWrapper: public NonCopy{
     return ret;
   }
   bool DeletePage(PageHandle hPage){
-    PageNum idx = hPage & PageNumMask - 1; // safety
+    PageNum idx = (hPage & PageNumMask) - 1; // safety
     assert(idx >= 0 && idx < page_size);
-    PagePtr& p = (*this)[idx];
+    PagePtr& p = pages[idx];
     if(!p)return true; // already deleted
     latch.WeakWriteLock();
+    p = nullptr;
     // update freelist
     if(free_size == 0 || free_index > idx){
       free_size++;
@@ -119,7 +123,8 @@ struct FileWrapper: public NonCopy{
 
 // }
 
-const int kLruIterationMax = 12;
+const int kLruSearchMax = 12;
+const int kLruSampleMax = 5;
 // const int kLruPackSize = 5;
 
 // caller shouldnt know detail about file offset and size
@@ -218,6 +223,7 @@ class PageManager: public NonCopy{
   // Memory
   Status Pool(PageHandle hPage, bool lock = true); // for unreferenced page, ready to retire
   Status Expire(PageHandle hPage, bool lock = true); // flush and expire
+  Status Switch(PageHandle hPage, PageHandle hPageNew, bool lock = true); // flush and expire
   // Public Accessor //
   inline size_t GetFileSize(FileHandle hFile){
     FilePtr f = GetFile(hFile);

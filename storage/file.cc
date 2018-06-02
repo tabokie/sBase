@@ -25,7 +25,7 @@ Status WritableFile::Close(void){
 
 Status WritableFile::Delete(void){
   if(!DeleteFile(fileName.c_str())){
-    std::cout << "<" << GetLastError() << ">" << std::endl;
+    std::cout << "Windows error: " << GetLastError() << std::endl;
     return Status::IOError("Cannot Delete File");
   }
   return Status::OK();
@@ -42,10 +42,11 @@ Status SequentialFile::Read(size_t offset, size_t size, char* alloc_ptr){
   DWORD dwError;
   if(dwPtr == INVALID_SET_FILE_POINTER \
     && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
+  DWORD numByteRead;
   bool rfRes = ReadFile(fhandle_, 
     alloc_ptr, 
     size, 
-    NULL, // num of bytes read
+    &numByteRead, // num of bytes read
     NULL); // overlapped structure
   if(!rfRes)return Status::IOError("Read File Failed");
   return Status::OK();
@@ -53,7 +54,7 @@ Status SequentialFile::Read(size_t offset, size_t size, char* alloc_ptr){
 Status SequentialFile::Write(size_t offset, size_t size, char* data_ptr) {
   if(!data_ptr)return Status::InvalidArgument("Null data pointer.");
   if(offset >= file_end_)return Status::OK();
-  if(offset + size >= file_end_)size = file_end_;
+  if(offset + size > file_end_)size = file_end_-offset;
   DWORD dwPtr = SetFilePointer(fhandle_, 
     offset, 
     NULL, 
@@ -61,12 +62,16 @@ Status SequentialFile::Write(size_t offset, size_t size, char* data_ptr) {
   DWORD dwError;
   if(dwPtr == INVALID_SET_FILE_POINTER \
     && (dwError = GetLastError())!=NO_ERROR)return Status::IOError("Set File Pointer Failed");
+  DWORD numByteWritten;
   bool rfRes = WriteFile(fhandle_, 
     data_ptr, 
     size, 
-    NULL,  // num of bytes read
+    &numByteWritten,  // num of bytes read
     NULL); // overlapped structure
-  if(!rfRes)return Status::IOError("Write File Failed");
+  if(!rfRes){
+    std::cout << "Windows error: " << GetLastError() << std::endl;
+    return Status::IOError("Write File Failed");
+  }
   return Status::OK();
 }
 

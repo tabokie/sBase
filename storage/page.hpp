@@ -28,7 +28,10 @@ struct Page: public NonCopy{
   PageType type;
   TimeType modified;
   TimeType commited;
-  Page(const WritableFile& f, PageHandle h = 0):file(&f), handle(h){ }
+  Page(const WritableFile& f, PageHandle h = 0):file(&f), handle(h){
+    commited = Time::Now();
+    modified = Time::Now();
+  }
   ~Page(){ }
   // 0 for referenced
   inline uint64_t Rank(void){return (Referenced()) ? 0 : Time::Now()-modified ;}

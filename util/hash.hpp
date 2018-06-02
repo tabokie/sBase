@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <functional>
+#include "./util/random.hpp"
 
 using std::shared_ptr;
 using std::make_shared;
@@ -56,6 +57,7 @@ class HashMap{
   size_t size_;
   size_t occupied_;
   PairPtr* table_;
+  // special structure
   size_t iterate_helper_;
  public:
   HashMap(size_t size = 50)
@@ -64,14 +66,24 @@ class HashMap{
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
   }
   ~HashMap(){ } // no delete ptr_object
+  // special method
   KeyType IterateKeyNext(void){
-    while(iterate_helper_ < size_){
+    size_t backup = iterate_helper_;
+    do{
       iterate_helper_++;
-      if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_-1])->key;
+      if(iterate_helper_ >= size_)iterate_helper_ = 0; // loop
+      if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_])->key;
+    }while(iterate_helper_ != backup);
+    return KeyType(0);
+  }
+  const int kHashMapSampleMax = 20;
+  KeyType RandomSampleKey(void){ 
+    for(int i = 0; i < kHashMapSampleMax; i++){
+      size_t idx = Random::getIntRand(size_);
+      if(idx < size_ && table_[idx] && !table_[idx]->deleted)return (table_[idx])->key;
     }
     return KeyType(0);
   }
-
   // insert element
   // override duplicate
   bool Insert(KeyType key, ElementType element){

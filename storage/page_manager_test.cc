@@ -43,17 +43,30 @@ TEST(PageManagerTest, PageTest){
 	ASSERT_TRUE(pager.CloseFile(file).ok());
 	ASSERT_TRUE(pager.OpenFile("test_io", file).ok());
 	page = GetPageHandle(file, 1);
-	// status = pager.Expire(page);
-	// if(!status.ok()){
-	// 	cout << status.ToString() << endl << flush;
-	// 	exit(0);
-	// }
 	char* ret;
 	PageRef* ref = new PageRef(&pager, page, kReadOnly);
 	ret = ref->ptr;
 	for(int i = 0; i<len; i++)EXPECT_EQ(data[i], ret[i]);	
 	delete ref;
+	delete [] data;
 	ASSERT_TRUE(pager.DeleteFile(file).ok());
+}
+TEST(PageManagerTest, PressureTest){
+	size_t len = 4096;
+	PageManager pager;
+	FileHandle file;
+	ASSERT_TRUE(pager.NewFile(string("pressure"), 4, file).ok());
+	for(int i = 0; i < 998; i++){
+		PageHandle page;
+		ASSERT_TRUE(pager.NewPage(file, kBFlowTablePage, page).ok());
+		auto ret = pager.Pool(page);
+		ASSERT_TRUE(ret.ok());
+	}
+	for(int i = 0; i < 100; i++){
+		EXPECT_TRUE(pager.DeletePage(i+1).ok());
+	}
+	auto ret = pager.DeleteFile(file);
+	EXPECT_TRUE(ret.ok());
 }
 
 void ParallelRefTest_read_thread(void){

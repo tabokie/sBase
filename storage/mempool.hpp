@@ -4,6 +4,7 @@
 #include "./util/status.hpp"
 #include "./util/hash.hpp"
 #include "./util/latch.hpp"
+#include "./util/error.hpp"
 
 #include <cassert>
 #include <vector>
@@ -28,7 +29,13 @@ class MemPool{
     size_t size;
     PtrWrapper(size_t s):ptr(nullptr),size(s){
       if(s<0)size = 0;
-      if(size > 0)ptr = new char[size]();
+      if(size > 0){
+        ptr = new char[size]();
+        if(ptr == NULL || ptr == nullptr){
+          ptr = nullptr;
+          throw MemoryOutofBounds{};
+        }
+      }
     }
     ~PtrWrapper(){if(ptr)delete [] ptr;}
   };
@@ -42,17 +49,21 @@ class MemPool{
   MemPool() = default;
   ~MemPool(){ }
   Status Add(HandleType handle, size_t size, char*& ptr){
+    // LOG_FUNC();
     latch.WeakWriteLock();
     for(int i = 0; i< free_.size(); i++){
-      if(blocks_[i]->size >= size){
-        ptr = blocks_[i]->ptr;
+      if(blocks_[free_[i]]->size >= size){
+        ptr = blocks_[free_[i]]->ptr;
         free_.erase(free_.begin()+i);
         latch.ReleaseWeakWriteLock();
         return Status::OK();
       }
     }
+    if(approximate_blocks_ + static_cast<double>(size) / kMempoolDefaultBlockSize > kMaxSolidMemory){
+      latch.ReleaseWeakWriteLock();
+      return Status::IOError("Not enough space.");
+    }
     approximate_blocks_ += static_cast<double>(size) / kMempoolDefaultBlockSize;
-    if(approximate_blocks_ > kMaxSolidMemory)return Status::IOError("Not enough space.");
     pool_.Insert(handle, blocks_.size());
     blocks_.push_back(make_shared<PtrWrapper>(size));
     ptr = (*(blocks_.end()-1))->ptr;
@@ -69,6 +80,7 @@ class MemPool{
     }
   }
   Status Delete(HandleType handle){
+    // LOG_FUNC();
     latch.WeakWriteLock();
     size_t idx;
     auto bool_ret = pool_.DeleteOnGet(handle, idx);
@@ -78,8 +90,23 @@ class MemPool{
     latch.ReleaseWeakWriteLock();
     return Status::OK();
   }
+  Status Switch(HandleType before, HandleType after){
+    // LOG_FUNC();
+    latch.WeakWriteLock();
+    size_t idx;
+    auto bool_ret = pool_.DeleteOnGet(before, idx);
+    if(bool_ret){
+      bool_ret = pool_.Insert(after, idx);
+    }
+    latch.ReleaseWeakWriteLock();
+    if(!bool_ret)return Status::Corruption("");
+    return Status::OK();
+  }
   HandleType IterateHandleNext(void){
     return pool_.IterateKeyNext();
+  }
+  HandleType SampleHandle(void){
+    return pool_.RandomSampleKey();
   }
   // Accessor //
   inline bool pooling(HandleType page){

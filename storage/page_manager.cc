@@ -36,6 +36,7 @@ Status PageManager::NewFile(std::string name, uint8_t block, FileHandle& hFile){
   return Status::OK();
 }
 Status PageManager::OpenFile(std::string name, FileHandle& hFile){
+  // LOG_FUNC();
   // create file and read header
   FilePtr f = make_shared<SequentialFile>(name);
   if(!f->Open().ok())return Status::IOError("Cannot Open Sequential File");
@@ -47,7 +48,7 @@ Status PageManager::OpenFile(std::string name, FileHandle& hFile){
   auto ret = f->Read(0, kFileHeaderLength, reinterpret_cast<char*>(&fileHeader));
   if(!ret.ok()){
     f->Close();
-    ret;
+    return ret;
   }
   // create wrapper and assign header to wrapper
   FileWrapperPtr fw = make_shared<FileWrapper>(f);
@@ -95,6 +96,7 @@ Status PageManager::CloseFile(FileHandle hFile){
   return Status::OK();
 }
 Status PageManager::DeleteFile(FileHandle hFile){
+  // LOG_FUNC();
   // get wrapper
   FileWrapperPtr fw = nullptr;
   if(!(fw=GetFileWrapper(hFile)))return Status::InvalidArgument("File handle invalid.");
@@ -103,12 +105,12 @@ Status PageManager::DeleteFile(FileHandle hFile){
   // traverse pages
   // sync on file
   fw->latch.WriteLock();
-  for(auto& p : fw->pages){
-    if(p){
+  for(auto p = fw->pages.begin();p!=fw->pages.end();p++){
+    if((*p)){
       // sync on page
-      p->latch.WriteLock();
+      (*p)->latch.WriteLock();
       // expire from pool
-      auto ret = Expire(p->handle, false);
+      auto ret = Expire((*p)->handle, false);
       if(!ret.ok())expire_ret = ret;
     }
   }
@@ -175,6 +177,7 @@ Status PageManager::SyncFromFile(PageHandle hPage, bool lock){
   return Status::OK();
 }
 Status PageManager::SyncFromMem(PageHandle hPage, bool lock){
+  // LOG_FUNC();
   PagePtr p = GetPage(hPage);
   if(!p)return Status::InvalidArgument("Page not found.");
   // mem is newer
@@ -192,6 +195,7 @@ Status PageManager::Pool(PageHandle hPage, bool lock){ // no care for sync
   return PoolFromDisk(hPage, lock);
 }
 Status PageManager::Expire(PageHandle hPage, bool lock){
+  // LOG_FUNC();
   Latch* pageLock = nullptr;
   if(lock){
     pageLock = GetPageLatch(hPage);
@@ -204,11 +208,11 @@ Status PageManager::Expire(PageHandle hPage, bool lock){
   if(lock)pageLock->ReleaseWriteLock();
   return ret;
 }
-
 // private Mem~File //
 // can read, no write
 // page being commited
 Status PageManager::FlushFromPool(PageHandle hPage, bool lock){ 
+  // LOG_FUNC();
   char* ptr = pool_.Get(hPage);
   if(!ptr)return Status::OK();                
   FileWrapperPtr fw = nullptr;
@@ -250,46 +254,63 @@ Status PageManager::FlushFromPtr(PageHandle hPage, char* data, bool lock){
 // pool anyway
 // no read nor write
 Status PageManager::PoolFromDisk(PageHandle hPage, bool lock){ 
+  // LOG_FUNC();
   char* p = nullptr;
+  PagePtr page = GetPage(hPage);
   size_t newSize = GetPageSize(hPage);
   size_t offset = GetPageOffset(hPage);
+  if(lock)page->latch.WriteLock();
+
   if(!(p = pool_.Get(hPage))){
     // alloc mem //
     auto ret = pool_.Add(hPage, newSize, p);
     if(ret.IsIOError() || !p){
       // do LRU here //
-      uint64_t bestRank = 0;
-      PageHandle bestPage;
+      // sample to estimate average rank in mempool
+      uint64_t totalRank = 0;
+      PagePtr tmpPage = nullptr;
       PageHandle curPage;
-      PagePtr p;
-      for(int i = 0; i < kLruIterationMax; i++){
+      PageHandle bestPage = 0;
+      bool pageLocked = false;
+      for(int i = 0; i < kLruSampleMax; i++){
+        curPage = pool_.SampleHandle();
+        if(curPage==0)continue;
+        tmpPage = GetPage(curPage);
+        if(tmpPage)totalRank += tmpPage->Rank();
+      }
+      totalRank /= kLruSampleMax;
+      for(int i = 0; i < kLruSearchMax; i++){
         curPage = pool_.IterateHandleNext();
         if(curPage == 0)break;
-        p = GetPage(curPage);
-        if(p && bestRank < p->Rank()){
-          bestRank = p->Rank();
+        tmpPage = GetPage(curPage);
+        if(tmpPage && totalRank < tmpPage->Rank()){ // rank > 0
+          tmpPage->latch.WriteLock();
+          pageLocked = true;
           bestPage = curPage;
-        } 
+          break;
+        }
       }
-      if(bestRank == 0)return Status::IOError("Not enough memory.");
-      ret = Expire(bestPage);
-      if(!ret.ok())return Status::IOError("Not enough memory.");
+      if(bestPage == 0)return Status::IOError("Not enough memory: cannot find right replacement.");
+      // bestPage & hPage is locked
+      ret = SyncFromMem(bestPage, false); // flush replacement
+      if(!ret.ok()){
+        if(pageLocked)tmpPage->latch.ReleaseWriteLock();
+        return Status::IOError("error when synchronize replacement.");
+      }
+      ret = pool_.Switch(bestPage, hPage);
+      if(pageLocked)tmpPage->latch.ReleaseWriteLock();
+      if(!ret.ok())return Status::IOError("error when switch replacement.");
+      p = pool_.Get(hPage);
+      if(!ret.ok())return Status::IOError("Not enough memory: error getting new memory.");
     }
     else if(!ret.ok())return ret;
   }
   // file -> mempool //
   FileWrapperPtr fw = GetFileWrapper(GetFileHandle(hPage));
   if(!fw)return Status::InvalidArgument("Unknown file.");
-  Latch* pageLock = nullptr;
-  PagePtr pg = GetPage(hPage);
-  if(lock){
-    pageLock = &(pg->latch);
-    if(!pageLock)return Status::Corruption("Cannot acquire lock.");
-    pageLock->WriteLock();
-  }
-  pg->Modify();
+  page->Modify();
   auto ret = fw->file->Read(offset, newSize, p);
-  if(lock)pageLock->ReleaseWriteLock();
+  if(lock)page->latch.ReleaseWriteLock();
   if(!ret.ok())return ret;  
   return Status::OK();
 }
