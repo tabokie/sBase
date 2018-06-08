@@ -37,8 +37,8 @@ inline char* lower_bound(char* data, size_t top, Value* key, size_t stripe){
 inline void BFlowCursor::read_page(char* data){
   BFlowHeader* header = reinterpret_cast<BFlowHeader*>(data);
   set_.oTop = header->oTop;
+  set_.hPri = header->hPri;
   set_.hNext = header->hNext;
-  pPage = data;
 }
 // Shift
 Status BFlowCursor::Shift(void){
@@ -55,7 +55,53 @@ Status BFlowCursor::ShiftBack(void){
 }
 // Modify
 Status Insert(Slice* record){
-  
+  PageRef ref(page_, set_.hPage, kLazyModify);
+  read_page();
+  if(set_.oTop >= kMaxSliceNum){
+    return Status::IOError("Full page.");
+  }
+  Value* pivot = record.get_primary();
+  int stripe = record_schema_->length();
+  char* start = lower_bound(ref.ptr+kBFlowHeaderLen, set_.oTop, pivot, stripe);
+  for(char* top = ref.ptr + kBFlowHeaderLen + set_.oTop*stripe; top > start; top -= stripe){
+    memcpy(top, top-stripe, stripe);
+  }
+  record->Write(start);
+  return Status::OK();
+}
+Status Split(Value* pilot, PageHandle& hRet){ // return new splited page and pilot key
+  // access old page
+  PageRef oldRef(page_, set_.hPage, kReadOnly);
+  read_page();
+  // access new page
+  PageHandle hNew;
+  auto status = page_->NewPage(set_.hFile, kBFlowTablePage, hNew);
+  if(!status.ok())return status;
+  PageRef newRef(page_, hNew, kLazyModify);
+  // build new header struct, and prepare header to override
+  BFlowHeader leftHeader;
+  BFlowHeader* rightHeader = reinterpret_cast<BFlowHeader*>(newRef.ptr);
+  leftHeader.oTop = set_.oTop/2+1; // left more
+  rightHeader->oTop = set_.oTop - left->oTop;
+  leftHeader.hPri = set_.hPri;
+  rightHeader->hPri = set_.hPage;
+  leftHeader.hNext = hNew;
+  rightHeader->hNext = set_.hNext;
+  // copy tail to new page
+  char* leftData = oldRef->ptr;
+  char* rightData = newRef->ptr;
+  memcpy(rightData + kBFlowHeaderLen,\
+   leftData + kBFlowHeaderLen + leftHeader.oTop * record_schema_->length(),\
+   rightHeader->oTop * record_schema_->length() );
+  pilot = new Value(key->type(), rightData + kBFlowHeaderLen);
+  hRet = hNew;
+  // now ready to override old page
+  if(!oldRef.LiftToWrite()){
+    DeletePage(hNew);
+    return Status::Corruption("Error locking old page.");
+  }
+  memcpy(oldRef.ptr, reinterpret_cast<char*>(&leftHeader),kBFlowHeaderLen );
+  return Status::OK();
 }
 // Query
 Status BFlowCursor::GetMatch(Value* key, SliceIterator& ret){

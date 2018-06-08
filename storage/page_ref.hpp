@@ -70,6 +70,14 @@ struct PageRef: public NonCopy{
       else mode = kFailAccess;
     }
   }
+  bool LiftToWrite(void){
+    if(mode != kReadOnlyByPool){
+      return false;
+    }
+    auto latch = manager->GetPageLatch(handle);
+    latch->LiftToWriteLock();
+    return true;
+  }
   ~PageRef(){
     // LOG_FUNC();
     if(!manager && ptr){

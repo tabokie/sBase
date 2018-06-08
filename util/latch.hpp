@@ -13,86 +13,93 @@
 namespace sbase{
 
 class Latch: public NonCopy{
+	std::mutex mutex_;
 	// reader
 	std::atomic<size_t> readers_;
-	std::mutex r_mutex_;
 	std::condition_variable cond_r_;
-	// strong writer
-	std::atomic<size_t> strong_writers_; // queue // atomic
-	bool strong_writer_;
-	std::mutex w_mutex_;
-	std::condition_variable cond_w_;
-	// weak writer
-	std::atomic<size_t> weak_writers_;
-	bool weak_writer_; // writer = strong + weak
-	std::mutex ww_mutex_;
+	// writer
+	std::atomic<size_t> strong_write_appliers_; // queue // atomic
+	std::atomic<size_t> weak_write_appliers_;
+	bool swriter_;
+	std::condition_variable cond_sw_;
+	bool writer_; // writer = strong + weak
 	std::condition_variable cond_ww_;
 public:
 	Latch(): readers_(0),
-		weak_writers_(0),strong_writers_(0),
-		strong_writer_(false),weak_writer_(false){ }
+		weak_write_appliers_(0),strong_write_appliers_(0),
+		writer_(false),swriter_(false){ }
 	~Latch(){ }
-	void ReadLock(void){ // strong writer
-		// LOG_FUNC();
-		std::unique_lock<std::mutex> local(r_mutex_);
+	void ReadLock(void){ 
+		// cannot acquire when strong writer is applying
+		// strong writer is banned
+		std::unique_lock<std::mutex> local(mutex_);
 		// wait means unlock and wait
-		cond_r_.wait( local, [=]()->bool {return !strong_writer_;} );
+		cond_r_.wait( local, [=]()->bool {return !swriter_;} );
 		readers_ ++;
 	}
-	void WeakWriteLock(void){ // any writer
-		// LOG_FUNC();
-		weak_writers_ ++;
-		std::unique_lock<std::mutex> local(ww_mutex_);
-		cond_ww_.wait( local, [=]()->bool{ return !strong_writer_ && !weak_writer_; } );
-		weak_writer_ = true;
+	void WeakWriteLock(void){ // writer is banned
+		weak_write_appliers_ ++;
+		std::unique_lock<std::mutex> local(mutex_);
+		cond_ww_.wait( local, [=]()->bool{ return !writer_; } );
+		writer_ = true;
+		weak_write_appliers_ --;
 	}
-	void WriteLock(void){ // strong writer and reader
-		// LOG_FUNC();
-		strong_writers_ ++;
-		std::unique_lock<std::mutex> local(w_mutex_);
-		cond_w_.wait(local, [=]()->bool{return !strong_writer_ && readers_ == 0;});
-		strong_writer_ = true;
+	void WriteLock(void){ // writer and reader are banned
+		strong_write_appliers_ ++;
+		std::unique_lock<std::mutex> local(mutex_);
+		cond_sw_.wait(local, [=]()->bool{return readers_ == 0 && !writer_;});
+		swriter_ = true;
+		writer_ = true;
+		strong_write_appliers_ --;
 	}
 	void ReleaseReadLock(void){ // notify strong writer
-		// LOG_FUNC();
-		std::unique_lock<std::mutex> local(r_mutex_);
+		std::unique_lock<std::mutex> local(mutex_);
 		if(--readers_ == 0){
 			// assert no writers
-			if(strong_writers_ > 0){
-				cond_w_.notify_one();
+			if(strong_write_appliers_ > 0){
+				cond_sw_.notify_one();
 			}
 		}
 	}
 	void ReleaseWeakWriteLock(void){ // notify weak writer
 		// LOG_FUNC();
-		std::unique_lock<std::mutex> local(ww_mutex_);
-		weak_writer_ = false;
-		weak_writers_ --;
+		std::unique_lock<std::mutex> local(mutex_);
+		writer_ = false;
 		// assert no strong writer
-		if(weak_writers_ > 0){
+		if(weak_write_appliers_ > 0){
 			cond_ww_.notify_one();
 		}
-		else if(readers_ == 0 && strong_writers_ > 0){
-			cond_w_.notify_one();
+		else if(readers_ == 0 && strong_write_appliers_ > 0){
+			cond_sw_.notify_one();
 		}
 	}
 	void ReleaseWriteLock(void){ // notify weak writer -> writer -> all reader
 		// LOG_FUNC();
-		std::unique_lock<std::mutex> local(w_mutex_);
-		strong_writer_ = false;
-		strong_writers_ --;
-		if(weak_writers_ > 0){
+		std::unique_lock<std::mutex> local(mutex_);
+		writer_ = false;
+		swriter_ = false;
+		if(weak_write_appliers_ > 0){
 			cond_ww_.notify_one();
 		}
-		else if(strong_writers_ > 0){
-			cond_w_.notify_one();
+		else if(strong_write_appliers_ > 0){
+			cond_sw_.notify_one();
 		}
 		else{
 			cond_r_.notify_all();
 		}
 	}
+	void LiftToWriteLock(void){
+		// assert having acquire a read lock
+		std::unique_lock<std::mutex> local(mutex_);
+		readers_--; // do not alert other write appliers
+		strong_write_appliers_++;
+		cond_sw_.wait(local, [=]()->bool{return readers_ == 0 && !writer_;});
+		swriter_ = true;
+		writer_ = true;
+		strong_write_appliers_ --;		
+	}
 	bool occupied(void){
-		return readers_ > 0 || weak_writers_ > 0 || strong_writers_ > 0;
+		return readers_ > 0 || writer_;
 	}
 }; // class Latch
 

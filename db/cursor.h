@@ -25,7 +25,8 @@ class BFlowCursor{
   Schema* record_schema_;
   // runtime
   struct BFlowPageInfo{
-    char* pPage;
+    FileHandle hFile; // for self initialize page
+    char* pPage; // for long term possess
     PageHandle hPage;
     // current load, invalidate if pPage is null
     PageHandle hPri;

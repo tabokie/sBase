@@ -53,7 +53,7 @@ struct BFlowSectionAHeader{
 
 const size_t kBlockLen = 4096;
 const size_t kBFlowHeaderLen = sizeof(BFlowHeader);
-const sizeof kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
+const size_t kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
 
 
 } // namespace sbase
