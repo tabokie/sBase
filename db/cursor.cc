@@ -11,205 +11,168 @@ using namespace std;
 
 namespace sbase{
 
-// B Tree
-// Page Layout :: [1byte size] + [x'b key | 2 byte ptr] + [x'b key | 2byte no | 2byte ptr(no)]*
-// Operations:
-// Insert, Delete: Find 
-// Get
-
-// B Flow Table
-// Page Layout :: 
-// [1]: [1byte size][x'b key | record]*
-// [2]: [1byte head| 1byte tail|2byte next_no][x'b key | record]*
-// [3]: [1]
-// Operations:
-// Insert, Delete(lazy)
-// Get
-class BFlowCursor{
-  enum BFlowStatus{
-    kFragValued = 0,
-    kSliceValued = 1
-  }
-  PageManager* page_; // only access for page type assertion
-  PageHandle page_no_;
-  char* page_data_;
-  Fragment key_;
-  Slice record_;
-  inline void MoveTo(PageHandle page){
-    assert(page_->type(page) == kBFlowTablePage);
-    page_no_ = page;
-    page_data_ = nullptr;
-    return ;
-  }
-  Status Get(Frag key, Slice& ret){
-    if(!page_->type(page_no_) == kBFlowTablePage)MoveTo(head_);
-    // open in read mode
-    // make local cursor
-    Fragment cur(key_);
-    // initial header data in section A
-    char* a_data = page_data_;
-    PageSizeType asize = *(reinterpret_cast<PageSizeType*>(a_data));
-    a_data += kPageSizeWid;
-    size_t offset = record_.length();
-    // initial header data in section B
-    char* b_data = page_data_ + kSectionASize;
-    PageSizeType bhead = *(reinterpret_cast<PageSizeType*>(b_data));
-    PageSizeType btail = *(reinterpret_cast<PageSizeType*>(b_data+kPageSizeWid));
-    PageHandle next_page = *(reinterpret_cast<PageSizeType*>(b_data+2*kPageSizeWid))
-    b_data += kPageSizeWid*2+kPageHandleWid;
-    // check which side
-    char* cur_record = b_data + offset * bhead;
-    cur_record >> cur;
-    if(cur > key_){ // section B probing
-      if(bhead > btail){
-        btail += kSectionBSize;
-      }
-      // binary searching
-      size_t hi = btail+1, mid, lo = bhead;
-      while(hi - lo >= 2){
-        mid = (lo+(hi-lo)/2);
-        char* cur_record = b_data+offset*(mid%kSectionBSize);
-        cur_record >> cur;
-        if(cur == key_){
-          lo = mid;
-          break;
-        }
-        else if(cur < key_)lo = mid;
-        else hi = mid;
-      }
-      b_data = b_data+offset*(lo%kSectionBSize);
+// Common for cursor query
+// ret_data >= key
+inline char* lower_bound(char* data, size_t top, Value* key, size_t stripe){
+  Value cur;
+  size_t hi = top, mid, lo = 0;
+  while(hi-lo >= 2){
+    mid = lo + (hi-lo)>>1; // mid > lo
+    char* curSlice = data + stripe * mid;
+    cur = Value(key->type(), curSlice);
+    if( cur == *key){
+      return cur;
+    }
+    else if(cur < *key){
+      lo = mid;
     }
     else{
-      size_t hi = asize+1, mid, lo = 0;
-      while(hi - lo >= 2){
-        mid = lo+(hi-lo)/2;
-        char* cur_record = a_data+offset*mid;
-        cur_record >> cur;
-        if(cur == key_){
-          lo = mid;
-          break;
-        }
-        else if(cur < key_)lo = mid;
-        else hi = mid;
-      }
-      a_data = a_data+offset*lo;
+      hi = mid;
     }
-
   }
-  Status Insert(){
-    if(!page_->type(page_no_) == kBFlowTablePage)MoveTo(head_);
+  return data + stripe * hi;
+}
 
-
-  }
-};
-
-
-
-// B Plus Tree //
-// For primary index, have forward pointer
-// Page Layout :: [1byte size] + [x'b key | 2 byte ptr] + [x'b key | 2byte ptr]*
-// One Step only
-// Whole Procedure: find ptr, insert (key,ptr) pair, change ptr(to nullptr allowed)(narrowed to insert)
-// Micro control: (Lock), read, find ptr, set status, (Unlock)
-// Move //
-  // Curse Back
-  // Right Shift
-  // Descend
-  // Ascend
-// Update //
-  // Insert: if full, split new, insert, insert to pather
-  // Split: make new page, narrow the old(override)
-class BPlusCursor{
-  static const size_t kBPlusStackSize = 8;
-  enum BPlusMoveStatus{
-    kRoot = 0,
-    kNil = 1,
-    kDescendNodePage = 2,
-    kShiftNodePage = 3,
-    kDescendLeafPage = 4
-  };
-  enum BPlusModifyStatus{
-    kEmpty = 0,
-    kToOverride = 1,
-    kToInsertReady = 2,
-    kToInsertFull = 3
-  };
- private:
-  // constant
-  PageManager* page_;
-  Fragment key_; // store data, as base type template
-  // backtracking
-  PageHandle stack_[kBPlusStackSize];
-  int stack_top_;
-  int level_;
-  // page handle
-  char* page_data_;
-  int slice_offset_;
-  PageHandle protrude_;
-  // cursor status
-  BPlusMoveStatus status_;
-  std::string last_error_;
-  // subroutine
-  BPlusModifyStatus mod_status_;
- public:
-  BPlusCursor(PageManager* page, Type* type, PageHandle root = 0):
-    page_(page), 
-    page_data_(nullptr),
-    slice_offset_(-1), 
-    key_(type), 
-    stack_top_(-1),
-    level_(-1),
-    protrude_(0){
-    status_ = kNil;
-    mod_status_ = kEmpty;
-    stack_[0] = 0; // nil page
-  }
-  ~BPlusCursor(){ }
+// BFlowCursor //
+inline void BFlowCursor::read_page(char* data){
+  BFlowHeader* header = reinterpret_cast<BFlowHeader*>(data);
+  set_.oTop = header->oTop;
+  set_.hNext = header->hNext;
+  pPage = data;
+}
+// Shift
+Status BFlowCursor::Shift(void){
+  set_.hPri = set_.hPage;
+  set_.hPage = set_.hNext;
+  assert(page_->type(set_.hPage) == kBFlowTablePage);
+  PageRef ref(page_, set.hPage, kReadOnly); 
+  read_page(ref.ptr);
+  return Status::OK();
+}
+Status BFlowCursor::ShiftBack(void){
+  set_.hNext = set_.hPage;
+  set_.hPage = set_.hPri;
+}
+// Modify
+Status Insert(Slice* record){
   
-  // Accessors //
-  inline BPlusMoveStatus status(void){return status_;}
-  inline bool descendable(void){return (status_ == kRoot || status_ == kDescendNodePage || status_ == kShiftNodePage);}
-  inline PageHandle current(void){assert(stack_top_>=0);return stack_[stack_top_];}
-  // assign key //
-  friend istream& operator>>(istream& is, BPlusCursor& cursor){
-    is >> cursor.key_;
-    cursor.resetStatus();
-    return is;
-  }
-  friend char* operator>>(char* in, BPlusCursor& cursor){
-    cursor.resetStatus();
-    return (in >> cursor.key_());
-  }
-  // Reset //
-  inline Status CurseBack(void);
- private:
-  inline void resetStatus(void){
-    if(status_!=kRoot)status_ = kDescendNodePage; 
-    slice_offset_ = -1; 
-    protrude_ = 0; // set to nil
-    return ;
-  }
- public:
-  inline Status SetRoot(PageHandle root){
-    stack_top_ = 0;
-    stack_[0] = root;
-    level_ = 0;
-    status_ = kRoot;
+}
+// Query
+Status BFlowCursor::GetMatch(Value* key, SliceIterator& ret){
+  assert(page_->type(set_.hPage) == kBFlowTablePage);
+  PageRef ref(page_, set.hPage, kReadOnly); 
+  read_page(ref.ptr);
+  char* basePtr = ref.ptr + kBFlowHeaderLen;
+  Slice* slice = record_schema_->NewObject();
+  int stripe = record_schema_->length();
+  if(key == nullptr){
+    for(int i = 0; i < set_.oTop; i++){
+      slice->Read(basePtr + stripe * i);
+      ret.push_back((*slice));
+    }
     return Status::OK();
   }
-  // Movement //
-  Status Descend(void);
-  Status Ascend(void);
-  Status Shift(PageHandle right);
-  // Update //
-  // insert only apply on current level
-  Status Insert(PageHandle page);
-  Status Delete(void){return Insert(0);}
-  // return new node's head key
-  Status Split(PageHandle new_page, char*& new_key);
+  char* match = lower_bound(basePtr, set_.oTop, key, stripe);
+  if(match == nullptr)return Status::OK();
+  Value cur = Value(key->type(), match);
+  while(cur == key){
+    slice->Read(match);
+    ret.push_back((*slice));
+    match += stripe;
+    cur.Read(match);
+  }
+  return Status::OK();
+}
+Status BFlowCursor::GetInRange(Value* min, Value* max, tuple<bool,bool>& query, SliceIterator& ret){
+  assert(page_->type(set_.hPage) == kBFlowTablePage);
+  PageRef ref(page_, set.hPage, kReadOnly); 
+  read_page(ref.ptr);
+  char* basePtr = ref.ptr + kBFlowHeaderLen;
+  Slice* slice = record_schema_->NewObject();
+  int stripe = record_schema_->length();
+  if(min == nullptr && max == nullptr){
+    for(int i = 0; i < set_.oTop; i++){
+      slice->Read(basePtr + stripe * i);
+      ret.push_back((*slice));
+    }
+    query[0] = true;
+    query[1] = true;
+    return Status::OK();
+  }
+  if(min == nullptr){
+    char* upper = lower_bound(basePtr, set_.oTop, max, stripe) - stripe;
+    if(query[1]){
+      Value cur = Value(key->type());
+      while(upper < basePtr + set_.oTop * stripe){
+        cur.Read(upper);
+        if(cur == key)upper += stripe;
+        else break;
+      }
+    }
+    char* curSlice = basePtr;
+    while(curSlice < upper){
+      slice->Read(curSlice);
+      ret.push_back((*slice));      
+    }
+    if(upper >= basePtr + set_.oTop * stripe)query[1] = true;
+    else query[1] = false;
+    query[0] = true;
+    return Status::OK();
+  }
+  if(max == nullptr){
+    char* lower = lower_bound(basePtr, set_.oTop, max, stripe);
+    if(!query[0]){ // left not equal
+      Value cur = Value(key->type());
+      while(lower < basePtr + set_.oTop * stripe){
+        cur.Read(lower);
+        if(cur == key)lower += stripe;
+        else break;
+      }
+    }
+    char* curSlice = lower;
+    while(curSlice <= basePtr + set_.oTop * stripe){
+      slice->Read(curSlice);
+      ret.push_back((*slice));      
+    }
+    if(lower <= basePtr)query[0] = true;
+    else query[0] = false;
+    query[1] = true;
+    return Status::OK();   
+  }
+  char* lower = lower_bound(basePtr, set_.oTop, min, stripe);
+  if(!query[0]){ // left not equal
+    Value cur = Value(key->type());
+    while(lower < basePtr + set_.oTop * stripe){
+      cur.Read(lower);
+      if(cur == key)lower += stripe;
+      else break;
+    }
+  }
+  if(lower <= basePtr)query[0] = true;
+  else query[0] = true;
+  char* curSlice = lower;
+  Value cur = Value(key->type(), lower);
+  while(curSlice <= basePtr  + set_.oTop * stripe){
+    if(query[1] && cur > (*max)){ // allow equal
+      query[1] = false;
+      return Status::OK();
+    }
+    if(!query[1] && cur >= (*max)){ // not equal
+      query[1] = false;
+      return Status::OK();
+    }
+    slice->Read(curSlice);
+    ret.push_back((*slice));
+    curSlice += stripe;
+    cur.Read(curSlice);
+  }
+  query[1] = true;
+  return Status::OK();
+}
 
-}; // class BPlusCursor
 
+
+// BPlusCursor //
 // Move //
 inline Status BPlusCursor::CurseBack(void){
   stack_top_ = 0;

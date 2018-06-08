@@ -31,8 +31,29 @@ struct BlockHeader{
 	uint8_t hBlockCode;
 	uint8_t hVoid;
 };
+struct BFlowHeader{
+	uint16_t oTop; // number of slice, data+oTop*stripe is end of valid data
+	PageHandle hPri;
+	PageHandle hNext;
+};
+struct BPlusHeader{
+	
+};
+/*
+struct BFlowSectionBHeader{
+	uint8_t oHead;
+	uint8_t oTail;
+	PageHandle hNext;
+};
+struct BFlowSectionAHeader{
+	uint8_t nSize;
+};
+*/
 #pragma pack()
 
+const size_t kBlockLen = 4096;
+const size_t kBFlowHeaderLen = sizeof(BFlowHeader);
+const sizeof kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
 
 
 } // namespace sbase

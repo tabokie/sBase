@@ -1,6 +1,6 @@
 #include <gtest\gtest.h>
 
-#include "scanner.hpp"
+#include "./compiler/scanner.hpp"
 #include "./storage/status.hpp"
 
 #include <string>

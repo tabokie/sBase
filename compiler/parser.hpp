@@ -60,7 +60,7 @@ LayeredDict<int, Stack<int>> kRuleDict(
   _from_("column"),_to_("NAME", "DOT", "MULTIPLY_OP"),
   _from_("column"),_to_("NAME"),
   _from_("column_list_tail"),_to_("NONE"),
-  _from_("column_list_tail"),_to_("column","column_list_tail"),
+  _from_("column_list_tail"),_to_("COMMA","column","column_list_tail"),
   _from_("table_list"),_to_("NAME", "table_list_tail"),
   _from_("table_list_tail"),_to_("NONE"),
   _from_("table_list_tail"),_to_("COMMA","NAME","table_list_tail"),

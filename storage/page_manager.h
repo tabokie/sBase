@@ -1,8 +1,6 @@
 #ifndef SBASE_STORAGE_PAGE_MANAGER_H_
 #define SBASE_STORAGE_PAGE_MANAGER_H_
 
-#include <cstring>
-
 #include "./util/status.hpp" 
 #include "./storage/file.h" // class WritableFile
 #include "./storage/mempool.hpp" // class MemPool

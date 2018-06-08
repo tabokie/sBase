@@ -33,6 +33,7 @@ namespace sbase{
 // print out record
 
 typedef Object Slice;
+using SliceIterator = std::vector<Object>::iterator;
 
 // Field //
 class Schema: public ClassDef{
@@ -54,25 +55,37 @@ class Schema: public ClassDef{
 	}
 	// Get Attribute //
 	bool GetPrimary(AttributeIterator& ret){
+		if(stuffed){
+			for(int i = 0; i < effective_attr_.size(); i++){
+				if(primary[i]){
+					ret.push_back(effective_attr_[i]);
+				}
+			}
+		}
 		if(!stuffed)return false;
+		return true;
 	}
-	size_t GetKeyIndex(std::string name){
+	size_t GetKeyIndexWithName(std::string name){
 		return GetAttributeIndex(name);
 	}
-	Attribute GetKey(size_t idx){
+	Attribute GetKeyWithIndex(size_t idx){
 		return GetAttribute(idx);
 	}
-	bool isPrimary(std::string name){
+	bool isPrimary(size_t idx){
 		if(!stuffed)return false;
 	}
-	bool allowNull(std::string name){
+	bool allowNull(size_t idx){
 		if(!stuffed)return false;
+		return null[idx];
 	}
-	Value& defaultValue(std::string name); // don't know if do for template
+	Value defaultValue(size_t idx){
+		auto str = defaultV[idx];
+		return Value(effective_attr_[idx].getType(), str);
+	}
 	// effective accessors //
 	size_t length(void){
-		return 0;
+		// restructure type //
 	}
-}
+};
 
 #endif // SBASE_STORAGE_SLICE_HPP_

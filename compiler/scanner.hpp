@@ -41,7 +41,7 @@ static const char* kWordLex[kWordSize] = {
   "^[*]",
   "^[/]",
   "^(sqrt)",
-  "^[a-zA-Z][a-zA-Z0-9]*"
+  "^[a-zA-Z_][a-zA-Z0-9_]*"
 };
 
 struct Token{

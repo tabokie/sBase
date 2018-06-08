@@ -6,6 +6,24 @@
 
 using namespace std;
 
+TEST(SliceTest, SchemaDefinition){
+  Schema user_schema;
+  Schema runtime_schema;
+  Schema blob_schema;
+}
+
+TEST(SliceTest, UserIO){ // StringIO
+
+}
+
+TEST(SliceTest, ValueIO){
+
+}
+
+TEST(SliceTest, BlobIO){
+
+}
+
 TEST(FragmentTest, OutputTest){
   FrontMock mocker;
   FieldMeta& field = mocker.get_meta();
