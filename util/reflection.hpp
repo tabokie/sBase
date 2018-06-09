@@ -30,6 +30,11 @@ struct FixChar{
 		// lazy initialization
 		// if(length > 0)fixchar = new char[length];
 	}
+	FixChar(int len, std::string in):length(len),fixchar(nullptr){
+		if(length < 0)length = 0;
+		fixchar = new char[length + 1]();
+		memcpy(fixchar, in.c_str(), ((in.size()<length)?in.size():length) );
+	}
 	FixChar(const FixChar& rhs):length(rhs.length),fixchar(nullptr){
 		if(rhs.fixchar){
 			fixchar = new char[length + 1]();
@@ -219,16 +224,17 @@ class RealValue: public BaseValue{
 enum TypeT{
 	tinyintT = 0, 
 	intT = 1, 
-	bigintT = 2, 
-	doubleT = 3, 
+	uintT = 2,
+	bigintT = 3, 
+	doubleT = 4, 
 	// varchar = 0,
-	fixchar8T = 4,
-	fixchar16T = 5,
-	fixchar32T = 6,
-	fixchar64T = 7,
-	fixchar128T = 8,
-	fixchar256T = 9,
-	unknownT = 10
+	fixchar8T = 5,
+	fixchar16T = 6,
+	fixchar32T = 7,
+	fixchar64T = 8,
+	fixchar128T = 9,
+	fixchar256T = 10,
+	unknownT = 11
 };
 
 class Type{
@@ -239,7 +245,7 @@ class Type{
 		if(typeId < 0 || typeId >= unknownT)return nullptr;
 		return prototypes[typeId]->clone();
 	}
-	TypeT getType() const{
+	TypeT type() const{
 		return typeId;
 	}
 	static size_t getLength(TypeT type_id){
@@ -255,6 +261,7 @@ class Type{
 BaseValue* Type::prototypes[unknownT] = {
 	new RealValue<int8_t>(0),
 	new RealValue<int32_t>(0),
+	new RealValue<uint32_t>(0),
 	new RealValue<int64_t>(0),
 	new RealValue<double>(0),
 	new RealValue<FixChar>(FixChar(8)),
@@ -269,12 +276,15 @@ BaseValue* Type::prototypes[unknownT] = {
 size_t Type::prototype_length[unknownT] = {
 	1, // new RealValue<int8_t>(0),
 	4, // new RealValue<int32_t>(0),
+	4,
 	8, // new RealValue<int64_t>(0),
 	4, // new RealValue<double>(0),
+	8,
 	16, // new RealValue<FixChar>(FixChar(16)),
 	32, // new RealValue<FixChar>(FixChar(32)),
 	64, // new RealValue<FixChar>(FixChar(64)),
-	128 // new RealValue<FixChar>(FixChar(128))
+	128, // new RealValue<FixChar>(FixChar(128))
+	256
 };
 
 // uniform interface
@@ -404,10 +414,10 @@ class Attribute{
  	type_(typeId){ }
  	Attribute():attr_name_("null"),type_(unknownT){ }
  	~Attribute(){ }
- 	const std::string& getName() const{
+ 	const std::string& name() const{
  		return attr_name_;
  	}
- 	TypeT getType(void) const{
+ 	TypeT type(void) const{
  		return type_;
  	}
  	bool operator==(const Attribute& rhs) const{
@@ -458,7 +468,6 @@ class ClassDef{
 		return false;
 	}
 	bool SubAttribute(size_t idx){
-		idx --;
 		if(!definition_fix_ && idx < attr_.size()){
 			attr_.erase(attr_.begin()+idx);
 			return true;
@@ -475,15 +484,14 @@ class ClassDef{
 		return false;
 	}
 	Attribute GetAttribute(size_t idx)const{
-		idx --;
 		assert(idx < effective_attr_.size());
 		return effective_attr_[idx];
 	}
 	size_t GetAttributeIndex(std::string name)const{
 		for(int idx = 0; idx < effective_attr_.size(); idx++){
 			auto attr = effective_attr_[idx];
-			if(attr.getName() == name){
-				return idx+1;
+			if(attr.name() == name){
+				return idx;
 			}
 		}
 		return 0;
@@ -491,7 +499,7 @@ class ClassDef{
 	size_t length(void) const{ // byte
 		size_t ret = 0;
 		for(auto& attr : effective_attr_){
-			ret += Type::getLength(attr.getType());
+			ret += Type::getLength(attr.type());
 		}
 		return ret;
 	}
@@ -529,25 +537,23 @@ class Object{
  	Object* clone(void){return new Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}
  	Value GetValue(size_t idx){
- 		idx --;
  		if(idx >= values_.size())return Value();
  		return values_[idx];
  	}
  	Value GetValue(const std::string& name){
  		size_t index = class_->GetAttributeIndex(name);
- 		if(index > 0)return values_[index-1];
+ 		if(index >= 0)return values_[index];
  		else return Value();
  	}
  	bool SetValue(size_t idx, const Value& val){
- 		idx --;
  		if(idx >= values_.size())return false;
  		values_[idx] = val;
  		return true;
  	}
  	bool SetValue(std::string name, const Value& val){
  		size_t index = class_->GetAttributeIndex(name);
- 		if(index > 0){
- 			values_[index-1] = val;
+ 		if(index >= 0){
+ 			values_[index] = val;
  			return true;
  		}
  		return false;
@@ -565,16 +571,16 @@ class Object{
  	void InitAttributeValue(void){
  		if(class_)
  		for(auto attr = class_->attributeBegin(); attr < class_->attributeEnd(); attr++){
- 			values_.push_back(Value((*attr).getType()));
+ 			values_.push_back(Value((*attr).type()));
  		}
  	}
  	template <class ...Args>
  	void InitAttributeValue(Args... args){
  		assert(sizeof...(args) <= class_->attributeCount());
  		auto attr = class_->attributeBegin();
- 		int arr[] = { ( values_.push_back(Value((*attr).getType(), args)),attr++,0)... };
+ 		int arr[] = { ( values_.push_back(Value((*attr).type(), args)),attr++,0)... };
  		while(attr < class_->attributeEnd()){
- 			values_.push_back(Value((*attr).getType()));
+ 			values_.push_back(Value((*attr).type()));
  			attr++;
  		}
  	}

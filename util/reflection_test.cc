@@ -26,6 +26,9 @@ TEST(ReflectionTest, FromRealValue){
 	int value = 177;
 	auto intv = Value(intT, new RealValue<int>(value));
 	EXPECT_EQ(intv.get<int>(), 177);
+	std::string str = "199";
+	auto strv = Value(fixchar16T, new RealValue<FixChar>( FixChar(16, str) ));
+	EXPECT_EQ(strv.get<FixChar>(), str);
 }
 
 TEST(ReflectionTest, DefineClass){
@@ -38,8 +41,8 @@ TEST(ReflectionTest, DefineClass){
 	EXPECT_EQ(cdef0.attributeCount(), 3);
 	int index = cdef0.GetAttributeIndex("attr1");
 	auto attr1 = cdef0.GetAttribute(index);
-	EXPECT_EQ(attr1.getName(), string("attr1"));
-	EXPECT_EQ(attr1.getType(), fixchar16T);
+	EXPECT_EQ(attr1.name(), string("attr1"));
+	EXPECT_EQ(attr1.type(), fixchar16T);
 	EXPECT_EQ(cdef0.length(), 4+16+4);
 	// from base class
 	ClassDef cdef1(&cdef0, "Derived");
@@ -48,9 +51,9 @@ TEST(ReflectionTest, DefineClass){
 	EXPECT_EQ(cdef1.attributeCount(), 4);
 	index = cdef1.GetAttributeIndex("attr1");
 	attr1 = cdef1.GetAttribute(index);
-	EXPECT_EQ(attr1.getType(), fixchar16T);
+	EXPECT_EQ(attr1.type(), fixchar16T);
 	attr1 = cdef1.GetAttribute(4);
-	EXPECT_EQ(attr1.getType(), intT);
+	EXPECT_EQ(attr1.type(), intT);
 	EXPECT_EQ(cdef1.length(), 4+16+4+4);
 }
 

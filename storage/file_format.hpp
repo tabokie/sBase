@@ -28,6 +28,12 @@ enum PageType{
 	kBPlusPage = 3
 };
 
+enum IndexType{
+	kBFlowIndex = 0,
+	kBPlusIndex = 1,
+	kBIndex = 2
+};
+
 
 #pragma pack(1)
 struct FileHeader{ // header do not take up a page, page encoded from OffsetBytes
@@ -36,7 +42,7 @@ struct FileHeader{ // header do not take up a page, page encoded from OffsetByte
 	uint32_t hOffsetBytes; // page start
 };
 struct ManifestBlockHeader{
-	uint8_t hBlockCode;
+	uint8_t hBlockCode; // common field
 	uint8_t oManifest0;
 	uint8_t nManifest0; // number of record
 	uint8_t oManifest1;
@@ -74,7 +80,7 @@ const size_t kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
 // Database root page stores
 const std::string kDatabaseRootPath = "./root";
 const FileHandle kDatabaseRootFile = 0;
-const PageHandle kDatabaseRootPage = 1; // hFile=0, hPage=1
+const PageNum kDatabaseRootPageNum = 1;
 
 
 } // namespace sbase

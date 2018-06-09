@@ -73,11 +73,6 @@ class Schema: public ClassDef{
 	bool isUnique(size_t idx){
 		return true;
 	}
-	// effective accessors //
-	size_t length(void){
-		// restructure type //
-		return 0;
-	}
 };
 
 }

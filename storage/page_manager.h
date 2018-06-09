@@ -234,6 +234,11 @@ class PageManager: public NoCopy{
     if(fw)return fw->blockSize;
     return 0;
   }
+  bool fileIsOpened(FileHandle hFile){
+    FileWrapperPtr pRet = nullptr;
+    if(!file_.Get(hFile, pRet) || !pRet)return false;
+    return true;
+  }
   // Public File Header Mpdifier //
   // inline bool ChangeRootOffset(FileHandle hFile, size_t offset);
  private:
