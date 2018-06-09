@@ -2,6 +2,7 @@
 #define SBASE_STORAGE_FILE_FORMAT_HPP_
 
 #include <cstdint>
+#include <string>
 
 
 namespace sbase{
@@ -20,12 +21,27 @@ const size_t kPageNumWid = 3;
 const size_t kFileHeaderLength = (10);
 const size_t kBlockHeaderLength = (2);
 
+enum PageType{
+	kDatabaseRoot = 0,
+	kTableRoot = 1,
+	kBFlowPage = 2,
+	kBPlusPage = 3
+};
+
+
 #pragma pack(1)
-struct FileHeader{
+struct FileHeader{ // header do not take up a page, page encoded from OffsetBytes
 	FileHandle hFileCode; // 0 for database core
 	uint8_t hFileBlockSize; // K
-	uint32_t hOffsetBytes;
-	uint32_t hRootOffsetBytes; // only needed for 0
+	uint32_t hOffsetBytes; // page start
+};
+struct ManifestBlockHeader{
+	uint8_t hBlockCode;
+	uint8_t oManifest0;
+	uint8_t nManifest0; // number of record
+	uint8_t oManifest1;
+	uint8_t nManifest1;
+	uint8_t hVoid;
 };
 struct BlockHeader{
 	uint8_t hBlockCode;
@@ -34,7 +50,7 @@ struct BlockHeader{
 struct BFlowHeader{
 	uint16_t oTop; // number of slice, data+oTop*stripe is end of valid data
 	PageHandle hPri;
-	PageHandle hNext;
+	PageHandle hNext; // point back if end of cluster
 };
 struct BPlusHeader{
 	
@@ -54,6 +70,11 @@ struct BFlowSectionAHeader{
 const size_t kBlockLen = 4096;
 const size_t kBFlowHeaderLen = sizeof(BFlowHeader);
 const size_t kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
+
+// Database root page stores
+const std::string kDatabaseRootPath = "./root";
+const FileHandle kDatabaseRootFile = 0;
+const PageHandle kDatabaseRootPage = 1; // hFile=0, hPage=1
 
 
 } // namespace sbase

@@ -15,7 +15,8 @@ enum RuntimeAccessMode{
   kEmptyAccess = 0,
   kReadOnly = 1,
   kLazyModify = 2,
-  kFatalModify = 3 
+  kFatalModify = 3,
+  kIncrementalModify = 4
 };
 
 namespace {
@@ -25,13 +26,14 @@ enum DeducedRuntimeAccessMode{
   // kReadOnlyByMap // reduce to file copy
   // kReadOnlyByFile
   kModifyByPool = 2,
-  kModifyByFile = 3
+  kModifyByPoolNonFatal = 3,
+  kModifyByFile = 4
 };	
 } // namespace anonymous
 
 // use by pointer
 // RAII reference pointer
-struct PageRef: public NonCopy{
+struct PageRef: public NoCopy{
   PageManager* manager; // global
   PageHandle handle;
   DeducedRuntimeAccessMode mode;
@@ -67,16 +69,30 @@ struct PageRef: public NonCopy{
         // self init ptr
         ptr = new char[size];
       }
+      else if(rmode == kIncrementalModify){
+        mode = kModifyByPoolNonFatal;
+        // block other write
+        auto latch = manager->GetPageLatch(handle);
+        latch->WeakWriteLock();
+        ptr = manager->GetPageDataPtr(handle);
+      }
       else mode = kFailAccess;
     }
   }
   bool LiftToWrite(void){
-    if(mode != kReadOnlyByPool){
-      return false;
+    if(mode == kReadOnlyByPool){
+      auto latch = manager->GetPageLatch(handle);
+      latch->ReadLockLiftToWriteLock();
+      mode = kModifyByPool;
+      return true;
     }
-    auto latch = manager->GetPageLatch(handle);
-    latch->LiftToWriteLock();
-    return true;
+    else if(mode == kModifyByPoolNonFatal){
+      auto latch = manager->GetPageLatch(handle);
+      latch->WeakWriteLockLiftToWriteLock();
+      mode = kModifyByPool;
+      return true;
+    }
+    return false;
   }
   ~PageRef(){
     // LOG_FUNC();
@@ -102,6 +118,10 @@ struct PageRef: public NonCopy{
         auto latch = manager->GetPageLatch(handle);
         latch->ReleaseWeakWriteLock();
         delete [] ptr;
+      }
+      else if(mode == kModifyByPoolNonFatal){
+        auto latch = manager->GetPageLatch(handle);
+        latch->ReleaseWeakWriteLock();        
       }
     }
   }

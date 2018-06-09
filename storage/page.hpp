@@ -6,6 +6,7 @@
 #include "./util/time.hpp"
 #include "./storage/file.h"
 #include "./util/time.hpp"
+#include "./storage/file_format.hpp" // PageType
 
 #include <memory>
 #include <cstdint>
@@ -13,14 +14,7 @@
 
 namespace sbase{
 
-enum PageType{
-  kEmptyPage = 0,
-  kBFlowTablePage = 1,
-  kBPlusIndexPage = 2,
-  kBIndexPage = 3
-};
-
-struct Page: public NonCopy{
+struct Page: public NoCopy{
   using PagePtr = std::shared_ptr<Page>;
   PageHandle handle;
   const WritableFile* file;

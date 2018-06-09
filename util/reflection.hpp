@@ -1,3 +1,6 @@
+#ifndef SBASE_UTIL_REFLECTION_HPP_
+#define SBASE_UTIL_REFLECTION_HPP_
+
 #include <vector>
 #include <string>
 #include <sstream>
@@ -11,10 +14,6 @@
 #include <iostream>
 using std::istream;
 using std::ostream;
-
-#ifdef
-#define min(a,b) 			(((a)<(b)) ? (a) : (b))
-#endif
 
 // NOTICE //
 // unsafe constructor using naked char*
@@ -45,7 +44,7 @@ struct FixChar{
 		if(!rhs.fixchar && rhs.length > 0)rhs.fixchar = new char[rhs.length + 1]();
 		std::string tmp;
 		is >> tmp;
-		memcpy(rhs.fixchar, tmp.c_str(), min(tmp.size(),rhs.length) );
+		memcpy(rhs.fixchar, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
 		rhs.fixchar[rhs.length] = '\0'; // in case of overflow
 		return is;
 	}
@@ -223,11 +222,13 @@ enum TypeT{
 	bigintT = 2, 
 	doubleT = 3, 
 	// varchar = 0,
-	fixchar16T = 4,
-	fixchar32T = 5,
-	fixchar64T = 6,
-	fixchar128T = 7,
-	unknownT = 8
+	fixchar8T = 4,
+	fixchar16T = 5,
+	fixchar32T = 6,
+	fixchar64T = 7,
+	fixchar128T = 8,
+	fixchar256T = 9,
+	unknownT = 10
 };
 
 class Type{
@@ -256,10 +257,12 @@ BaseValue* Type::prototypes[unknownT] = {
 	new RealValue<int32_t>(0),
 	new RealValue<int64_t>(0),
 	new RealValue<double>(0),
+	new RealValue<FixChar>(FixChar(8)),
 	new RealValue<FixChar>(FixChar(16)),
 	new RealValue<FixChar>(FixChar(32)),
 	new RealValue<FixChar>(FixChar(64)),
-	new RealValue<FixChar>(FixChar(128))
+	new RealValue<FixChar>(FixChar(128)),
+	new RealValue<FixChar>(FixChar(256))
 };
 
 // compromise
@@ -584,3 +587,6 @@ Object* ClassDef::NewObject(void)const{
 	return new Object(this);
 }
 
+
+
+#endif // SBASE_UTIL_REFLECTION_HPP_

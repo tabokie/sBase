@@ -2,11 +2,11 @@
 #define SBASE_DB_CURSOR_H_
 
 #include <cstring>
-#include <storage\file_format.hpp>
-#include "storage\page_manager.h"
-#include "util\slice.hpp"
-#include "util\status.h"
-#include "util\utility.hpp"
+#include ".\storage\file_format.hpp"
+#include ".\storage\page_manager.h"
+#include ".\db\slice.hpp"
+#include ".\util\status.h"
+#include ".\util\utility.hpp"
 #include <functional>
 #include <iostream>
 #include <cassert>
@@ -45,6 +45,7 @@ class BFlowCursor{
   Status Insert(Slice* record);
   Status Split(void);
   Status Merge(void);
+  Status ClearPage(void);
   // Query
   Status GetMatch(Value* key, SliceIterator& ret);
   // in: lequal/requal specify wheather the range is open
@@ -52,7 +53,7 @@ class BFlowCursor{
   Status GetInRange(Value* min, Value* max, tuple<bool,bool>& query, SliceIterator& ret);
 };
 
-
+/*
 // B Plus Tree //
 // For primary index, have forward pointer
 // Page Layout :: 
@@ -83,7 +84,7 @@ class BPlusCursor{
     PageHandle hPage;
     PageHandle hLeft;
     PageHandle hDown; // for descend
-    size_t nLevel;
+    size_t nLevel; // 1 for first level
   } set_;
   // maintenance
   PageManager* page_;
@@ -118,7 +119,7 @@ class BPlusCursor{
   // get sequence by getting min(continuity in BFlow), if no, shift
   Status Get(PageHandle& ret);
 }; // class BPlusCursor
-
+*/
 
 
 

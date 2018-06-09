@@ -8,8 +8,8 @@
 
 */
 
-#include "util\reflection.hpp"
-#include "util\status.h"
+#include ".\util\reflection.hpp"
+#include ".\util\status.hpp"
 
 #include <iostream>
 #include <string>
@@ -18,11 +18,6 @@
 #include <vector>
 #include <cassert>
 
-using std::ostream;
-using std::istream;
-using std::vector;
-using std::function;
-using std::string;
 
 namespace sbase{
 
@@ -41,8 +36,9 @@ class Schema: public ClassDef{
  	// effective auxiliary field
  	bool stuffed;
  	std::vector<bool> primary; // true for primary
- 	std::vector<bool> null; // true for allow null
- 	std::vector<std::string> defaultV; // store as string
+ 	std::vector<bool> unique;
+ 	// std::vector<bool> null; // true for allow null
+ 	// std::vector<std::string> defaultV; // store as string
  public:
 	template<typename attr_iterator>
 	Schema(ClassDef const* base, std::string name, attr_iterator attrBegin, attr_iterator attrEnd):
@@ -54,7 +50,7 @@ class Schema: public ClassDef{
 		return new Object(this);
 	}
 	// Get Attribute //
-	bool GetPrimary(AttributeIterator& ret){
+	bool GetPrimary(AttributeContainer& ret){
 		if(stuffed){
 			for(int i = 0; i < effective_attr_.size(); i++){
 				if(primary[i]){
@@ -72,20 +68,18 @@ class Schema: public ClassDef{
 		return GetAttribute(idx);
 	}
 	bool isPrimary(size_t idx){
-		if(!stuffed)return false;
+		return true;
 	}
-	bool allowNull(size_t idx){
-		if(!stuffed)return false;
-		return null[idx];
-	}
-	Value defaultValue(size_t idx){
-		auto str = defaultV[idx];
-		return Value(effective_attr_[idx].getType(), str);
+	bool isUnique(size_t idx){
+		return true;
 	}
 	// effective accessors //
 	size_t length(void){
 		// restructure type //
+		return 0;
 	}
 };
+
+}
 
 #endif // SBASE_STORAGE_SLICE_HPP_

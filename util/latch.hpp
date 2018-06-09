@@ -12,7 +12,7 @@
 
 namespace sbase{
 
-class Latch: public NonCopy{
+class Latch: public NoCopy{
 	std::mutex mutex_;
 	// reader
 	std::atomic<size_t> readers_;
@@ -38,15 +38,15 @@ public:
 		readers_ ++;
 	}
 	void WeakWriteLock(void){ // writer is banned
-		weak_write_appliers_ ++;
 		std::unique_lock<std::mutex> local(mutex_);
+		weak_write_appliers_ ++;
 		cond_ww_.wait( local, [=]()->bool{ return !writer_; } );
 		writer_ = true;
 		weak_write_appliers_ --;
 	}
 	void WriteLock(void){ // writer and reader are banned
-		strong_write_appliers_ ++;
 		std::unique_lock<std::mutex> local(mutex_);
+		strong_write_appliers_ ++;
 		cond_sw_.wait(local, [=]()->bool{return readers_ == 0 && !writer_;});
 		swriter_ = true;
 		writer_ = true;
@@ -54,7 +54,7 @@ public:
 	}
 	void ReleaseReadLock(void){ // notify strong writer
 		std::unique_lock<std::mutex> local(mutex_);
-		if(--readers_ == 0){
+		if(--readers_ >= 1){
 			// assert no writers
 			if(strong_write_appliers_ > 0){
 				cond_sw_.notify_one();
@@ -69,7 +69,7 @@ public:
 		if(weak_write_appliers_ > 0){
 			cond_ww_.notify_one();
 		}
-		else if(readers_ == 0 && strong_write_appliers_ > 0){
+		else if(readers_ >= 1 && strong_write_appliers_ > 0){
 			cond_sw_.notify_one();
 		}
 	}
@@ -80,6 +80,7 @@ public:
 		swriter_ = false;
 		if(weak_write_appliers_ > 0){
 			cond_ww_.notify_one();
+			cond_r_.notify_all();
 		}
 		else if(strong_write_appliers_ > 0){
 			cond_sw_.notify_one();
@@ -88,15 +89,22 @@ public:
 			cond_r_.notify_all();
 		}
 	}
-	void LiftToWriteLock(void){
+	void ReadLockLiftToWriteLock(void){
 		// assert having acquire a read lock
 		std::unique_lock<std::mutex> local(mutex_);
-		readers_--; // do not alert other write appliers
 		strong_write_appliers_++;
-		cond_sw_.wait(local, [=]()->bool{return readers_ == 0 && !writer_;});
+		cond_sw_.wait(local, [=]()->bool{return readers_ == 1;});
+		readers_--; // now release read lock
 		swriter_ = true;
 		writer_ = true;
 		strong_write_appliers_ --;		
+	}
+	void WeakWriteLockLiftToWriteLock(void){
+		std::unique_lock<std::mutex> local(mutex_);
+		strong_write_appliers_ ++;
+		cond_sw_.wait(local, [=]()->bool{return readers_ == 0;}); // already hold weak write lock
+		swriter_ = true;
+		strong_write_appliers_ --;
 	}
 	bool occupied(void){
 		return readers_ > 0 || writer_;

@@ -14,26 +14,27 @@
 #include <cassert>
 #include <string>
 #include <iostream>
+#include <memory>
 
 namespace sbase{
 
 class PageRef;
 
 // namespace {
-struct FileWrapper: public NonCopy{
+struct FileWrapper: public NoCopy{
   using FilePtr = typename WritableFile::WritableFilePtr;
   using FileWrapperPtr = shared_ptr<FileWrapper>;
   using PagePtr = typename Page::PagePtr;
-  using PageIterator = std::vector<PagePtr>::iterator;
+  using PageIterator = ::std::vector<PagePtr>::iterator;
   // Low-level
   FilePtr file;
   // Extern Info
   int blockSize; // bytes
   FileHandle hFile;
-  std::string fileName;
+  ::std::string fileName;
   size_t dataOffset;
   // Data
-  std::vector<PagePtr> pages;
+  ::std::vector<PagePtr> pages;
   // Synchronic
   Latch latch; // control multiple modifiers
   std::atomic<size_t> free_index;
@@ -103,7 +104,7 @@ struct FileWrapper: public NonCopy{
       free_size --;
       assert(index < page_size && !pages[index]);
       // initial a new page
-      pages[index] = make_shared<Page>(*file);
+      pages[index] = std::make_shared<Page>(*file);
       // find new free
       if(free_size > 0)
         for(size_t i = free_index+1; i < page_size; i++){
@@ -128,7 +129,7 @@ const int kLruSampleMax = 5;
 // caller shouldnt know detail about file offset and size
 // no detail about lock
 // no MemMap used
-class PageManager: public NonCopy{ 
+class PageManager: public NoCopy{ 
   friend PageRef;  
   using FilePtr = typename WritableFile::WritableFilePtr;
   using PagePtr = typename Page::PagePtr;
@@ -196,9 +197,9 @@ class PageManager: public NonCopy{
   // :: add/override hashmap of hFile to FileWrapper
   // sync: hand down to HashMap
   // undefined behaviour if file already opened
-  Status NewFile(std::string name, uint8_t block, FileHandle& hFile);
+  Status NewFile(::std::string name, uint8_t block, FileHandle& hFile);
   // :: open file and read in header and pages
-  Status OpenFile(std::string name, FileHandle& hFile);
+  Status OpenFile(::std::string name, FileHandle& hFile);
   // :: close file and expire all related data
   // sync: WriteLock on pages
   Status CloseFile(FileHandle hFile);

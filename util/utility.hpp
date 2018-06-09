@@ -2,12 +2,12 @@
 #define SBASE_UTIL_HPP_
 
 
-class NonCopy {
+class NoCopy {
 	public:
-		NonCopy() = default;
+		NoCopy() = default;
 	private:
-		NonCopy(const NonCopy &) = delete;
-		NonCopy& operator=(const NonCopy &) = delete;
+		NoCopy(const NoCopy &) = delete;
+		NoCopy& operator=(const NoCopy &) = delete;
 };
 
 #endif /* SBASE_UTIL_HPP_ */
