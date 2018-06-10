@@ -30,6 +30,7 @@ public:
 		writer_(false),swriter_(false){ }
 	~Latch(){ }
 	void ReadLock(void){ 
+		// LOG_FUNC();
 		// cannot acquire when strong writer is applying
 		// strong writer is banned
 		std::unique_lock<std::mutex> local(mutex_);
@@ -38,6 +39,7 @@ public:
 		readers_ ++;
 	}
 	void WeakWriteLock(void){ // writer is banned
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(mutex_);
 		weak_write_appliers_ ++;
 		cond_ww_.wait( local, [=]()->bool{ return !writer_; } );
@@ -45,6 +47,7 @@ public:
 		weak_write_appliers_ --;
 	}
 	void WriteLock(void){ // writer and reader are banned
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(mutex_);
 		strong_write_appliers_ ++;
 		cond_sw_.wait(local, [=]()->bool{return readers_ == 0 && !writer_;});
@@ -53,6 +56,7 @@ public:
 		strong_write_appliers_ --;
 	}
 	void ReleaseReadLock(void){ // notify strong writer
+		// LOG_FUNC();
 		std::unique_lock<std::mutex> local(mutex_);
 		if(--readers_ >= 1){
 			// assert no writers

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <initializer_list>
 
 #include ".\util\blob.hpp"
 
@@ -43,6 +44,9 @@ struct FixChar{
 	}
 	~FixChar(){
 		if(fixchar)delete [] fixchar;
+	}
+	operator std::string()const {
+		return std::string(fixchar);
 	}
 	friend istream& operator>>(istream& is, FixChar& rhs){
 		if(rhs.length <= 0) return is;
@@ -145,7 +149,6 @@ class BaseValue{
  	virtual size_t length(void) = 0;
 };
 
-std::stringstream BaseValue::ConvertHelper_("");
 
 // real value holder
 
@@ -258,34 +261,7 @@ class Type{
 	TypeT typeId;
 };
 
-BaseValue* Type::prototypes[unknownT] = {
-	new RealValue<int8_t>(0),
-	new RealValue<int32_t>(0),
-	new RealValue<uint32_t>(0),
-	new RealValue<int64_t>(0),
-	new RealValue<double>(0),
-	new RealValue<FixChar>(FixChar(8)),
-	new RealValue<FixChar>(FixChar(16)),
-	new RealValue<FixChar>(FixChar(32)),
-	new RealValue<FixChar>(FixChar(64)),
-	new RealValue<FixChar>(FixChar(128)),
-	new RealValue<FixChar>(FixChar(256))
-};
 
-// compromise
-size_t Type::prototype_length[unknownT] = {
-	1, // new RealValue<int8_t>(0),
-	4, // new RealValue<int32_t>(0),
-	4,
-	8, // new RealValue<int64_t>(0),
-	4, // new RealValue<double>(0),
-	8,
-	16, // new RealValue<FixChar>(FixChar(16)),
-	32, // new RealValue<FixChar>(FixChar(32)),
-	64, // new RealValue<FixChar>(FixChar(64)),
-	128, // new RealValue<FixChar>(FixChar(128))
-	256
-};
 
 // uniform interface
 // exist because BaseValue is pure abstract class(no data, no ctor)
@@ -528,14 +504,29 @@ class Object{
  	Object(ClassDef const* cls):class_(cls){
  		InitAttributeValue();
  	}
+ 	Object(ClassDef const* cls, const std::initializer_list<Value>& pack):class_(cls){
+ 		assert(pack.size() <= class_->attributeCount());
+ 		auto attr = class_->attributeBegin();
+ 		for(auto& val : pack){
+ 			values_.push_back(val);
+ 			attr++;
+ 		}
+ 		while(attr < class_->attributeEnd()){
+ 			values_.push_back(Value( attr->type() ) );
+ 			attr++;
+ 		}
+ 	}
  	template <class ...Args>
  	Object(ClassDef const* cls, Args... args):class_(cls){
  		InitAttributeValue(args...);
- 	}
+ 	} 	
  	Object(const Object& rhs):class_(rhs.class_),values_(rhs.values_){	}
  	~Object(){ }
  	Object* clone(void){return new Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}
+ 	Value operator[](size_t idx){
+ 		return GetValue(idx);
+ 	}
  	Value GetValue(size_t idx){
  		if(idx >= values_.size())return Value();
  		return values_[idx];
@@ -566,6 +557,13 @@ class Object{
  		}
  		return ;
  	}
+ 	void Write(char* ptr){
+ 		for(auto& val: values_){
+ 			val.Write(ptr);
+ 			ptr += val.length();
+ 		}
+ 		return ; 		
+ 	}
  	size_t length(void) const{if(!class_)return 0; return class_->length();}
  private:
  	void InitAttributeValue(void){
@@ -586,12 +584,6 @@ class Object{
  	}
 
 };
-
-
-// Afterward definition for ClassDef
-Object* ClassDef::NewObject(void)const{
-	return new Object(this);
-}
 
 
 

@@ -10,6 +10,7 @@
 
 #include ".\util\reflection.hpp"
 #include ".\util\status.hpp"
+#include ".\storage\file_format.hpp" 
 
 #include <iostream>
 #include <string>
@@ -34,31 +35,51 @@ using SliceIterator = std::vector<Object>::iterator;
 class Schema: public ClassDef{
  private:
  	// effective auxiliary field
- 	bool stuffed;
  	std::vector<bool> primary; // true for primary
  	std::vector<bool> unique;
  	// std::vector<bool> null; // true for allow null
  	// std::vector<std::string> defaultV; // store as string
+ 	std::vector<PageHandle> index;
  public:
+ 	Schema(std::string name):ClassDef(nullptr, name){ };
 	template<typename attr_iterator>
-	Schema(ClassDef const* base, std::string name, attr_iterator attrBegin, attr_iterator attrEnd):
-		ClassDef(base,name,attrBegin,attrEnd),stuffed(false){ } 
-	Schema(ClassDef const* base, std::string name):
-		ClassDef(base,name),stuffed(false){ }
+	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd, std::vector<bool> prim, std::vector<bool> uniq):
+		ClassDef(nullptr,name,attrBegin,attrEnd),primary(prim),unique(uniq),index((attrEnd-attrBegin),0){ }
+	template<typename attr_iterator>
+	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd, std::vector<bool> prim):
+		ClassDef(nullptr,name,attrBegin,attrEnd),primary(prim),unique((attrBegin-attrEnd), true),index((attrEnd-attrBegin),0){ }
+
+	template<typename attr_iterator>
+	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd):
+		ClassDef(nullptr,name,attrBegin,attrEnd),primary((attrEnd-attrBegin), false),unique((attrEnd-attrBegin), true),index((attrEnd-attrBegin),0){
+		primary[0] = true; // first as primary
+	} 
 	// Initialize //
 	Slice* NewSlice(void){
 		return new Object(this);
 	}
+	bool SetIndex(size_t idx, PageHandle hPage){
+		if(index.size() == 0){
+			index.resize(attributeCount());
+		}
+		else if(index.size() < attributeCount())return false;
+		index[idx] = hPage;
+		return true;
+	}	
+	bool AddField(const Attribute& attr, bool prim, bool uniq){
+		AddAttribute(attr);
+		primary.push_back(prim);
+		unique.push_back(uniq);
+		return true;
+	}
+
 	// Get Attribute //
 	bool GetPrimary(AttributeContainer& ret){
-		if(stuffed){
-			for(int i = 0; i < effective_attr_.size(); i++){
-				if(primary[i]){
-					ret.push_back(effective_attr_[i]);
-				}
+		for(int i = 0; i < effective_attr_.size(); i++){
+			if(primary[i]){
+				ret.push_back(effective_attr_[i]);
 			}
 		}
-		if(!stuffed)return false;
 		return true;
 	}
 	size_t GetKeyIndexWithName(std::string name){
@@ -68,11 +89,12 @@ class Schema: public ClassDef{
 		return GetAttribute(idx);
 	}
 	bool isPrimary(size_t idx){
-		return true;
+		return primary[idx];
 	}
 	bool isUnique(size_t idx){
-		return true;
+		return unique[idx];
 	}
+
 };
 
 }

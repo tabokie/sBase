@@ -58,23 +58,25 @@ class HashMap{
   size_t occupied_;
   PairPtr* table_;
   // special structure
-  size_t iterate_helper_;
+  size_t iterate_helper_; // last one visited in iterate method
  public:
   HashMap(size_t size = 50)
-    :size_(size),occupied_(0){ 
+    :size_(size),occupied_(0),iterate_helper_(0){ 
     table_ = new PairPtr[size_];
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
   }
   ~HashMap(){ } // no delete ptr_object
   // special method
+  void IterateClear(void){iterate_helper_ = 0;}
   KeyType IterateKeyNext(void){
+    if(iterate_helper_ >= size_)return KeyType();
     size_t backup = iterate_helper_;
     do{
-      iterate_helper_++;
+      if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_++])->key;
+      iterate_helper_ ++;
       if(iterate_helper_ >= size_)iterate_helper_ = 0; // loop
-      if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_])->key;
     }while(iterate_helper_ != backup);
-    return KeyType(0);
+    return KeyType();
   }
   const int kHashMapSampleMax = 20;
   KeyType RandomSampleKey(void){ 
@@ -82,7 +84,7 @@ class HashMap{
       size_t idx = Random::getIntRand(size_);
       if(idx < size_ && table_[idx] && !table_[idx]->deleted)return (table_[idx])->key;
     }
-    return KeyType(0);
+    return KeyType();
   }
   // insert element
   // override duplicate

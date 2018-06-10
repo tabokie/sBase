@@ -54,6 +54,7 @@ class MemPool{
     for(int i = 0; i< free_.size(); i++){
       if(blocks_[free_[i]]->size >= size){
         ptr = blocks_[free_[i]]->ptr;
+        pool_.Insert(handle, free_[i]);
         free_.erase(free_.begin()+i);
         latch.ReleaseWeakWriteLock();
         return Status::OK();

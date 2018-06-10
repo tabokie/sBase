@@ -16,7 +16,6 @@ Status PageManager::NewFile(std::string name, uint8_t block, FileHandle& hFile){
   FileHeader newFileHeader;
   newFileHeader.hFileCode = fhandle;
   newFileHeader.hFileBlockSize = block;
-  newFileHeader.hRootOffsetBytes = 0;
   newFileHeader.hOffsetBytes = kFileHeaderLength;
   auto ret = f->Write(0, kFileHeaderLength, reinterpret_cast<char*>(&newFileHeader));
   if(!ret.ok()){
@@ -36,7 +35,6 @@ Status PageManager::NewFile(std::string name, uint8_t block, FileHandle& hFile){
   return Status::OK();
 }
 Status PageManager::OpenFile(std::string name, FileHandle& hFile){
-  // LOG_FUNC();
   // create file and read header
   FilePtr f = make_shared<SequentialFile>(name);
   if(!f->Open().ok())return Status::IOError("Cannot Open Sequential File");
@@ -143,7 +141,7 @@ Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
     size_t fileEnd = (fsize / fw->blockSize + 1) * fw->blockSize + fw->dataOffset;
     fw->file->SetEnd(fileEnd);
     // add new page
-    hPage = fw->AddPage(make_shared<Page>(*(fw->file)));
+    hPage = GetPageHandle(hFile, fw->AddPage(make_shared<Page>(*(fw->file))));
   }
   else{ // meaning acquire a new page
     hPage = GetPageHandle(hFile, free);
@@ -180,7 +178,8 @@ Status PageManager::SyncFromMem(PageHandle hPage, bool lock){
   // LOG_FUNC();
   PagePtr p = GetPage(hPage);
   if(!p)return Status::InvalidArgument("Page not found.");
-  // mem is newer
+  // mem is newer // NOTICE
+  // return FlushFromPool(hPage, lock);
   if(p->commited < p->modified)return FlushFromPool(hPage, lock);
   return Status::OK();
 }

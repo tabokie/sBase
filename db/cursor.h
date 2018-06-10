@@ -5,7 +5,7 @@
 #include ".\storage\file_format.hpp"
 #include ".\storage\page_manager.h"
 #include ".\db\slice.hpp"
-#include ".\util\status.h"
+#include ".\util\status.hpp"
 #include ".\util\utility.hpp"
 #include <functional>
 #include <iostream>

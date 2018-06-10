@@ -44,7 +44,7 @@ struct PageRef: public NoCopy{
     // LOG_FUNC();
     if(!manager)mode = kFailAccess;
     else{
-      manager->Pool(handle); // assert(inPool || no modify process), safe to pool
+      manager->Pool(handle);
       if(rmode == kReadOnly){
         mode = kReadOnlyByPool;
         // read lock
@@ -77,6 +77,7 @@ struct PageRef: public NoCopy{
         ptr = manager->GetPageDataPtr(handle);
       }
       else mode = kFailAccess;
+      if(!ptr)std::cout << "Page referenced as a null ptr!" << std::endl;
     }
   }
   bool LiftToWrite(void){

@@ -43,9 +43,9 @@ struct FileHeader{ // header do not take up a page, page encoded from OffsetByte
 };
 struct ManifestBlockHeader{
 	uint8_t hBlockCode; // common field
-	uint8_t oManifest0;
+	uint16_t oManifest0;
 	uint8_t nManifest0; // number of record
-	uint8_t oManifest1;
+	uint16_t oManifest1;
 	uint8_t nManifest1;
 	uint8_t hVoid;
 };
@@ -73,12 +73,13 @@ struct BFlowSectionAHeader{
 */
 #pragma pack()
 
-const size_t kBlockLen = 4096;
+const size_t kBlockSize = 4; // use KB as internal unit
+const size_t kBlockLen = kBlockSize * 1024;
 const size_t kBFlowHeaderLen = sizeof(BFlowHeader);
 const size_t kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
 
 // Database root page stores
-const std::string kDatabaseRootPath = "./root";
+const std::string kDatabaseRootPath = "root";
 const FileHandle kDatabaseRootFile = 0;
 const PageNum kDatabaseRootPageNum = 1;
 

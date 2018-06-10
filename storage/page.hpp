@@ -33,7 +33,7 @@ struct Page: public NoCopy{
   // modify <= GetDataPtr, FlushFromDisk
   inline void Modify(void){modified = Time::Now();}
   // commit <= WriteFile, FlushFromMem
-  inline void Commit(void){commited = Time::Now();}
+  inline void Commit(void){commited = Time::Now();} 
 };
 
 } // namespace sbase

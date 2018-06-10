@@ -182,15 +182,16 @@ class PageManager: public NoCopy{
   inline uint8_t GetAvailableFileHandle(void){
     for(FileHandle hF = 0; hF <= 255 ;hF++){
       FileWrapperPtr p = nullptr;
-      if(!pool_.pooling(hF)){
+      if(!file_.Get(hF, p)){
         return hF;
       }
     }
     return 255;
   }
   inline size_t GetPageOffset(PageHandle hPage){
-    if(hPage == 0)return 0;
-    return kFileHeaderLength + (hPage-1) * GetPageSize(hPage);
+    PageNum n = GetPageNum(hPage);
+    if(n == 0)return 0;
+    return kFileHeaderLength + (n-1) * GetPageSize(hPage);
   }
  public:
   /// File Interface ///
