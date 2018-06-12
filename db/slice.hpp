@@ -29,31 +29,35 @@ namespace sbase{
 // print out record
 
 typedef Object Slice;
-using SliceIterator = std::vector<Object>::iterator;
+using SliceContainer = std::vector<Object>;
 
 // Field //
 class Schema: public ClassDef{
  private:
  	// effective auxiliary field
- 	std::vector<bool> primary; // true for primary
+ 	std::vector<uint8_t> input_index;
+ 	// std::vector<bool> primary; // true for primary
  	std::vector<bool> unique;
  	// std::vector<bool> null; // true for allow null
  	// std::vector<std::string> defaultV; // store as string
  	std::vector<PageHandle> index;
  public:
+ 	// for all input, first is primary
+ 	// for vector input, assume that input_index == real_index
  	Schema(std::string name):ClassDef(nullptr, name){ };
 	template<typename attr_iterator>
-	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd, std::vector<bool> prim, std::vector<bool> uniq):
-		ClassDef(nullptr,name,attrBegin,attrEnd),primary(prim),unique(uniq),index((attrEnd-attrBegin),0){ }
-	template<typename attr_iterator>
-	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd, std::vector<bool> prim):
-		ClassDef(nullptr,name,attrBegin,attrEnd),primary(prim),unique((attrBegin-attrEnd), true),index((attrEnd-attrBegin),0){ }
-
-	template<typename attr_iterator>
 	Schema(std::string name, attr_iterator attrBegin, attr_iterator attrEnd):
-		ClassDef(nullptr,name,attrBegin,attrEnd),primary((attrEnd-attrBegin), false),unique((attrEnd-attrBegin), true),index((attrEnd-attrBegin),0){
-		primary[0] = true; // first as primary
+		ClassDef(nullptr,name,attrBegin,attrEnd),input_index((attrEnd-attrBegin), 0),unique((attrEnd-attrBegin), false),index((attrEnd-attrBegin),0){
+		for(int i = 0; i < attributeCount(); i++)input_index[i] = i;
+		unique[0] = true; // primary
 	} 
+	void AppendField(Attribute attr, int idx, bool uniq = false){ // this order corresponding to real layout
+		AddAttribute(attr);
+		input_index.push_back(idx);
+		unique.push_back(uniq);
+		index.push_back(0);
+		return ;
+	}
 	// Initialize //
 	Slice* NewSlice(void){
 		return new Object(this);
@@ -66,21 +70,13 @@ class Schema: public ClassDef{
 		index[idx] = hPage;
 		return true;
 	}	
-	bool AddField(const Attribute& attr, bool prim, bool uniq){
-		AddAttribute(attr);
-		primary.push_back(prim);
-		unique.push_back(uniq);
-		return true;
-	}
-
 	// Get Attribute //
-	bool GetPrimary(AttributeContainer& ret){
-		for(int i = 0; i < effective_attr_.size(); i++){
-			if(primary[i]){
-				ret.push_back(effective_attr_[i]);
-			}
-		}
-		return true;
+	PageHandle GetIndexHandle(size_t idx){
+		if(index.size() == 0)return 0;
+		return index[idx];
+	}
+	const Attribute& GetPrimaryAttr(void){
+		return effective_attr_[0];
 	}
 	size_t GetKeyIndexWithName(std::string name){
 		return GetAttributeIndex(name);
@@ -89,7 +85,7 @@ class Schema: public ClassDef{
 		return GetAttribute(idx);
 	}
 	bool isPrimary(size_t idx){
-		return primary[idx];
+		return idx == 0;
 	}
 	bool isUnique(size_t idx){
 		return unique[idx];

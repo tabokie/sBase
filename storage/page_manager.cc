@@ -146,7 +146,20 @@ Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
   else{ // meaning acquire a new page
     hPage = GetPageHandle(hFile, free);
   }
-
+  // write to this file
+  auto pPage = GetPage(hPage);
+  if(!pPage)return Status::Corruption("?");
+  pPage->type = type;
+  pPage->latch.WriteLock();
+  Pool(hPage, false);
+  char* data = GetPageDataPtr(hPage);
+  if(!data){
+    pPage->latch.ReleaseWriteLock();
+    return Status::Corruption("Cannot get data pointer.");
+  }
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(data);
+  header->hBlockCode = static_cast<uint8_t>(type);
+  pPage->latch.ReleaseWriteLock();
   return Status::OK();
 }
 Status PageManager::DeletePage(PageHandle hPage){
@@ -278,9 +291,12 @@ Status PageManager::PoolFromDisk(PageHandle hPage, bool lock){
         if(tmpPage)totalRank += tmpPage->Rank();
       }
       totalRank /= kLruSampleMax;
+      PageHandle backupHandle = 0;
+      pool_.IterateHandleClear();
       for(int i = 0; i < kLruSearchMax; i++){
         curPage = pool_.IterateHandleNext();
         if(curPage == 0)break;
+        backupHandle = curPage;
         tmpPage = GetPage(curPage);
         if(tmpPage && totalRank < tmpPage->Rank()){ // rank > 0
           tmpPage->latch.WriteLock();
@@ -289,7 +305,8 @@ Status PageManager::PoolFromDisk(PageHandle hPage, bool lock){
           break;
         }
       }
-      if(bestPage == 0)return Status::IOError("Not enough memory: cannot find right replacement.");
+      if(backupHandle == 0)return Status::IOError("Not enough memory: cannot find right replacement.");
+      if(bestPage == 0)bestPage = backupHandle;
       // bestPage & hPage is locked
       ret = SyncFromMem(bestPage, false); // flush replacement
       if(!ret.ok()){
@@ -309,6 +326,9 @@ Status PageManager::PoolFromDisk(PageHandle hPage, bool lock){
   if(!fw)return Status::InvalidArgument("Unknown file.");
   page->Modify();
   auto ret = fw->file->Read(offset, newSize, p);
+  // read in page type
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(p);
+  page->type = static_cast<PageType>(header->hBlockCode);
   if(lock)page->latch.ReleaseWriteLock();
   if(!ret.ok())return ret;  
   return Status::OK();

@@ -22,10 +22,11 @@ const size_t kFileHeaderLength = (10);
 const size_t kBlockHeaderLength = (2);
 
 enum PageType{
-	kDatabaseRoot = 0,
-	kTableRoot = 1,
-	kBFlowPage = 2,
-	kBPlusPage = 3
+	kUnknownPage = 0,
+	kDatabaseRoot = 1,
+	kTableRoot = 2,
+	kBFlowPage = 3,
+	kBPlusPage = 4
 };
 
 enum IndexType{
@@ -54,12 +55,13 @@ struct BlockHeader{
 	uint8_t hVoid;
 };
 struct BFlowHeader{
-	uint16_t oTop; // number of slice, data+oTop*stripe is end of valid data
+	uint16_t nSize; // number of slice, data+oTop*stripe is end of valid data
 	PageHandle hPri;
 	PageHandle hNext; // point back if end of cluster
 };
 struct BPlusHeader{
-	
+	uint16_t nSize;
+	PageHandle hRight;
 };
 /*
 struct BFlowSectionBHeader{

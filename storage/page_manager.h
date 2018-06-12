@@ -240,6 +240,12 @@ class PageManager: public NoCopy{
     if(!file_.Get(hFile, pRet) || !pRet)return false;
     return true;
   }
+  PageType GetPageType(PageHandle hPage){
+    auto pPage = GetPage(hPage);
+    if(!pPage)return kUnknownPage;
+    if(pPage->type == kUnknownPage)PoolFromDisk(hPage);
+    return pPage->type;
+  }
   // Public File Header Mpdifier //
   // inline bool ChangeRootOffset(FileHandle hFile, size_t offset);
  private:

@@ -30,7 +30,7 @@ TEST(PageManagerTest, PageTest){
 	PageHandle page;
 	Status status;
 
-	status = pager.NewPage(file,kBFlowTablePage, page);	
+	status = pager.NewPage(file,kBFlowPage, page);	
 	if(!status.ok()){
 		cout << status.ToString() << endl << flush;
 		exit(0);
@@ -58,7 +58,7 @@ TEST(PageManagerTest, PressureTest){
 	ASSERT_TRUE(pager.NewFile(string("pressure"), 4, file).ok());
 	for(int i = 0; i < 998; i++){
 		PageHandle page;
-		ASSERT_TRUE(pager.NewPage(file, kBFlowTablePage, page).ok());
+		ASSERT_TRUE(pager.NewPage(file, kBFlowPage, page).ok());
 		auto ret = pager.Pool(page);
 		ASSERT_TRUE(ret.ok());
 	}

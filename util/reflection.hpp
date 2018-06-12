@@ -74,16 +74,55 @@ struct FixChar{
 		if(!rhs.fixchar)return true;
 		return strcmp(fixchar, rhs.fixchar) > 0;
 	}
+	bool operator<=(const FixChar& rhs) const{
+		if(!fixchar)return true;
+		if(!rhs.fixchar)return false;
+		return strcmp(fixchar, rhs.fixchar) <= 0;
+	}
+	bool operator>=(const FixChar& rhs) const{
+		if(!rhs.fixchar)return true;
+		if(!fixchar)return false;
+		return strcmp(fixchar, rhs.fixchar) >= 0;
+	}
 	bool operator==(const FixChar& rhs) const{
 		if(!fixchar && !rhs.fixchar)return true;
 		if(!fixchar || !rhs.fixchar)return false;
 		return strcmp(fixchar, rhs.fixchar) == 0;
 	}
 	bool operator==(const std::string rhs) const{
+		if(!fixchar)return rhs.length()==0;
 		return strcmp(fixchar, rhs.c_str()) == 0;
+	}
+	bool operator>(const std::string rhs) const{
+		if(!fixchar)return false;
+		return strcmp(fixchar, rhs.c_str()) > 0;
+	}
+	bool operator>=(const std::string rhs) const{
+		if(!fixchar)return rhs.length()==0;
+		return strcmp(fixchar, rhs.c_str()) >= 0;
+	}
+	bool operator<(const std::string rhs) const{
+		if(!fixchar)return rhs.length()!=0;
+		return strcmp(fixchar, rhs.c_str()) < 0;
+	}
+	bool operator<=(const std::string rhs) const{
+		if(!fixchar)return true;
+		return strcmp(fixchar, rhs.c_str()) <= 0;
 	}
 	friend bool operator==(const std::string lhs, const FixChar& rhs){
 		return rhs == lhs;
+	}
+	friend bool operator<(const std::string lhs, const FixChar& rhs){
+		return rhs < lhs;
+	}
+	friend bool operator>(const std::string lhs, const FixChar& rhs){
+		return rhs > lhs;
+	}
+	friend bool operator<=(const std::string lhs, const FixChar& rhs){
+		return rhs <= lhs;
+	}
+	friend bool operator>=(const std::string lhs, const FixChar& rhs){
+		return rhs >= lhs;
 	}
 };
 
@@ -146,6 +185,9 @@ class BaseValue{
  	virtual bool operator<(const BaseValue& rhs) const = 0;
  	virtual bool operator>(const BaseValue& rhs) const = 0;
  	virtual bool operator==(const BaseValue& rhs) const = 0;
+ 	virtual bool operator<=(const BaseValue& rhs) const = 0;
+ 	virtual bool operator>=(const BaseValue& rhs) const = 0;
+
  	virtual size_t length(void) = 0;
 };
 
@@ -220,6 +262,12 @@ class RealValue: public BaseValue{
  	bool operator==(const BaseValue& rhs) const{
  		return val == (static_cast<const RealValue<PlainType>&>(rhs).val);
  	}
+ 	bool operator>=(const BaseValue& rhs) const{
+ 		return val >= (static_cast<const RealValue<PlainType>&>(rhs).val);
+ 	}
+ 	bool operator<=(const BaseValue& rhs) const{
+ 		return val <= (static_cast<const RealValue<PlainType>&>(rhs).val);
+ 	}
  	size_t length(void){return TypeLen<PlainType>{}(val);}
 
 };
@@ -255,6 +303,10 @@ class Type{
 		if(type_id < unknownT)return prototype_length[type_id];
 		return 0;
 	}
+	static BaseValue* InfinityValue(TypeT typeId){
+		if(typeId < 0 || typeId >= unknownT)return nullptr;
+		return prototypes[typeId]->clone();
+	}
  protected: 
 	static BaseValue* prototypes[unknownT];
 	static size_t prototype_length[unknownT];
@@ -270,6 +322,9 @@ class Value{
 	BaseValue* val;
 	TypeT type_;
  public:
+ 	static Value InfinityValue(TypeT type){
+ 		return Value(type, Type::InfinityValue(type));
+ 	}	
 	// Value(BaseValue const& v):val(v.clone()){ }
 	Value(Value const& rhs):val(rhs.val ? rhs.val->clone() : nullptr),type_(rhs.type_){ }
 	explicit Value(TypeT typeId, BaseValue* pv):val(pv),type_(typeId){ }
@@ -352,24 +407,33 @@ class Value{
 	}
 	bool operator<(const Value& rhs) const{
 		// always push null to last
-		if(!val && !rhs.val)return false;
-		else if(!val)return false;
+		if(!rhs.val)return false;
 		else if(!rhs.val)return true;
 		return (*val) < (*(rhs.val));
 	}
 	bool operator>(const Value& rhs) const{
 		// always push null to last
-		if(!val && !rhs.val)return false;
-		else if(!val)return false;
+		if(!val)return false;
 		else if(!rhs.val)return true;
 		return (*val) > (*(rhs.val));
 	}
 	bool operator==(const Value& rhs) const{
 		// always push null to last
 		if(!val && !rhs.val)return true;
-		else if(!val)return false;
-		else if(!rhs.val)return false;
+		else if(!val || !rhs.val)return false;
 		return (*val) == (*(rhs.val));
+	}
+	bool operator<=(const Value& rhs) const{
+		// always push null to last
+		if(!val)return true;
+		else if(!rhs.val)return false;
+		return (*val) <= (*(rhs.val));
+	}
+	bool operator>=(const Value& rhs) const{
+		// always push null to last
+		if(!rhs.val)return true;
+		else if(!val)return false;
+		return (*val) >= (*(rhs.val));
 	}
 	size_t length(void) const{
 		if(!val)return 0;
@@ -412,7 +476,7 @@ class ClassDef{
 	using AttributeContainer = std::vector<Attribute>;
 	using AttributeIterator = std::vector<Attribute>::const_iterator;
 	// attributes
-	std::vector<Attribute> attr_;
+	// std::vector<Attribute> attr_;
 	std::vector<Attribute> effective_attr_; // include full attr
 	// base inheritence
 	ClassDef const* base_;
@@ -425,9 +489,10 @@ class ClassDef{
 		base_(base),
 		name_(name),
 		definition_fix_(false){ 
-		std::copy(attrBegin, attrEnd, std::back_inserter<AttributeContainer>(attr_));
+		// std::copy(attrBegin, attrEnd, std::back_inserter<AttributeContainer>(attr_));
 		BaseInit();
-		effective_attr_.insert(effective_attr_.end(), attr_.begin(), attr_.end());
+		// effective_attr_.insert(effective_attr_.end(), attr_.begin(), attr_.end());
+		effective_attr_.insert(effective_attr_.end(), attrBegin, attrEnd);
 	}
 	ClassDef(ClassDef const* base, std::string name):
 		base_(base),
@@ -435,26 +500,9 @@ class ClassDef{
 		definition_fix_(false){ 
 		BaseInit();
 	}
-	bool AddAttribute(const Attribute& newAttr){
+	bool AddAttribute(Attribute newAttr){
 		if(!definition_fix_){
-			attr_.push_back(newAttr);
 			effective_attr_.push_back(newAttr);
-			return true;
-		}
-		return false;
-	}
-	bool SubAttribute(size_t idx){
-		if(!definition_fix_ && idx < attr_.size()){
-			attr_.erase(attr_.begin()+idx);
-			return true;
-		}
-		return false;
-	}
-	bool SubAttribute(std::string name){
-		if(definition_fix_)return false;
-		auto found = std::find(attr_.begin(), attr_.end(), name);
-		if(found != attr_.end()){
-			attr_.erase(found);
 			return true;
 		}
 		return false;
@@ -463,14 +511,14 @@ class ClassDef{
 		assert(idx < effective_attr_.size());
 		return effective_attr_[idx];
 	}
-	size_t GetAttributeIndex(std::string name)const{
+	int GetAttributeIndex(std::string name)const{
 		for(int idx = 0; idx < effective_attr_.size(); idx++){
 			auto attr = effective_attr_[idx];
 			if(attr.name() == name){
 				return idx;
 			}
 		}
-		return 0;
+		return -1;
 	}
 	size_t length(void) const{ // byte
 		size_t ret = 0;

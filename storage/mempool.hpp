@@ -103,6 +103,8 @@ class MemPool{
     if(!bool_ret)return Status::Corruption("");
     return Status::OK();
   }
+  void IterateHandleClear(void){pool_.IterateClear();}
+    
   HandleType IterateHandleNext(void){
     return pool_.IterateKeyNext();
   }

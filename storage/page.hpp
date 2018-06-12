@@ -22,7 +22,7 @@ struct Page: public NoCopy{
   PageType type;
   TimeType modified;
   TimeType commited;
-  Page(const WritableFile& f, PageHandle h = 0):file(&f), handle(h){
+  Page(const WritableFile& f, PageHandle h = 0):file(&f), handle(h), type(kUnknownPage){
     commited = Time::Now();
     modified = Time::Now();
   }
