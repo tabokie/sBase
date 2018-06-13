@@ -203,7 +203,7 @@ Status Engine::LoadTable(std::string name){
 		fieldSlice->Read(cur);
 		// index and unique
 		pMeta->schema.AppendField(\
-			Attribute( static_cast<std::string>((*fieldSlice)[1].get<FixChar>()),\
+			Attribute( static_cast<std::string>((*fieldSlice)[1].get<FixChar32>()),\
 				static_cast<TypeT>((*fieldSlice)[2].get<int8_t>()) ), \
 			static_cast<bool>((*fieldSlice)[0].get<int8_t>()),\
 			static_cast<bool>((*fieldSlice)[4].get<int8_t>()) );

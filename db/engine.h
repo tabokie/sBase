@@ -14,6 +14,11 @@
 #include <memory> // shared_ptr
 #include <vector>
 #include <string>
+#include <deque> 
+
+#ifndef LOGFUNC
+#define LOGFUNC()					do{std::cout << __func__ << std::endl;}while(0)
+#endif // LOGFUNC
 
 namespace sbase{
 
@@ -78,10 +83,21 @@ class Engine: public NoCopy{
 	struct CursorHolder{
 		TableMetaDataPtr pTable;
 		BFlowCursor curMain;
-		size_t nIndex;
+		int idxIndex; // the cursor's index
 		BPlusCursor curIndex;
-		CursorHolder(PageManager* manager):pTable(nullptr),curMain(manager),nIndex(0),curIndex(manager){ }
+		CursorHolder(PageManager* manager):pTable(nullptr),curMain(manager),idxIndex(0),curIndex(manager){ }
 	} cursor_;
+	struct RuntimeHolder{
+		bool isPrimary;
+		std::deque<PageHandle> handles;
+		std::deque<Slice> slices;
+		// scoping
+		Value* min;
+		Value* max;
+		bool leftEqual;
+		bool rightEqual;
+		RuntimeHolder():isPrimary(true){ }
+	} runtime_;
  public:
  	Engine():cursor_(&manager){ }
  	~Engine(){ }
@@ -104,6 +120,14 @@ class Engine: public NoCopy{
  	Status CloseDatabase(void);
  	Status CloseTable(std::string name);
  	// Cursor //
+ 	Status Transaction(void){
+ 		cursor_.pTable = nullptr;
+ 		cursor_.idxIndex = 0;
+ 		runtime_.isPrimary = true;
+ 		runtime_.handles.clear();
+ 		runtime_.slices.clear();
+ 		return Status::OK();
+ 	}
  	Status OpenCursor(std::string table, std::string field){
  		auto pTable = GetTable(table);
  		if(!pTable)return Status::InvalidArgument("Cannot find field.");
@@ -115,66 +139,154 @@ class Engine: public NoCopy{
  		return Status::OK();
  	}
  	Status OpenCursor(std::string table){
+ 		LOGFUNC();
  		auto pTable = GetTable(table);
  		if(!pTable)return Status::InvalidArgument("Cannot find field.");
  		cursor_.curMain.Set(&pTable->schema, pTable->bflow_root);
  		return Status::OK();
  	}
+ 	// if primary index, return one handle; else return nil/one
+ 	Status PrepareMatch(Value* key){
+ 		runtime_.min = key;
+ 		runtime_.max = key;
+ 		runtime_.leftEqual = true;
+ 		runtime_.rightEqual = true;
+ 		cursor_.curIndex.Rewind();
+ 		PageHandle ret;
+ 		Status status = DescendToLeaf(key, ret);
+ 		runtime_.handles.push_back(ret);
+ 		return Status::OK();
+ 	}
+ 	// for non-primary
+ 	Status PrepareSequence(Value* min, Value* max, bool leftEqual = true, bool rightEqual = true){
+ 		// if(cursor_.idxIndex == 0)return PrepareMatch(min);
+ 		// PageHandle ret;
+ 		// Status status = DescendToLeaf(min, ret);
+ 		// status = cursor_.curIndex.GetSequence(min,max,make_tuple<bool,bool>(leftEqual, rightEqual), runtime_.handles);
+
+ 		return Status::OK();
+ 	}
+ 	Status NextSlice(Slice*& ret){
+ 		LOGFUNC();
+ 		if(runtime_.slices.size() <= 0){ // no more slice
+ 			if(runtime_.handles.size() <= 0){ // no more handles
+ 				ret = nullptr;
+ 				return Status::OK();
+ 			}
+ 			cursor_.curMain.MoveTo(runtime_.handles.front());
+ 			bool left = runtime_.leftEqual;
+ 			bool right = runtime_.rightEqual;
+ 			cursor_.curMain.Get(runtime_.min, runtime_.max, left, right, runtime_.slices);
+ 			runtime_.handles.pop_front();
+ 			if(left){ // have more left
+ 				runtime_.handles.push_front(cursor_.curMain.leftHandle());
+ 			}
+ 		}
+ 		std::cout << "NextSlice: " << std::string((runtime_.slices.front().GetValue(0)))<<", "<<std::string((runtime_.slices.front().GetValue(1)))<<std::endl;
+ 		// have slice in store
+ 		// ret = &(runtime_.slices.front());
+ 		ret = new Slice(runtime_.slices.front());
+ 		std::cout << "NextSlice: " << std::string((ret->GetValue(0)))<<", "<<std::string((ret->GetValue(1)))<<std::endl;
+ 		runtime_.slices.pop_front();
+ 		std::cout << "NextSlice: " << std::string((ret->GetValue(0)))<<", "<<std::string((ret->GetValue(1)))<<std::endl;
+ 		return Status::OK();
+ 	}
+ 	// Status PopSlice(void){
+ 	// 	runtime_.slices.pop_front();
+ 	// 	return Status::OK();
+ 	// }
+ 	Status DeleteSlice(void){return Status::OK();}
+ 	Status InsertSlice(Slice* slice){
+ 		LOGFUNC();
+ 		std::cout << cursor_.curMain.currentHandle() << std::endl;
+ 		cursor_.curMain.MoveTo(runtime_.handles.front());
+ 		std::cout << cursor_.curMain.currentHandle() << std::endl;
+ 		Status status = cursor_.curMain.Insert(slice);
+ 		if(status.IsIOError()){ // bflow is full
+ 			// Slice* newSlice = nullptr;
+ 			// PageHandle newPage;
+ 			// // split bflow
+ 			// status = cursor_.curMain.Split(newSlice, newPage);
+ 			// if(!status.ok())return status;
+ 			// status = cursor_.curMain.Insert(&slice);
+ 			// if(!status.ok())return status;
+ 			// *newSlice = cursor_.curMain.GetMin();
+ 			// // update index
+ 			// status = DescendToLeaf(newPivot);
+ 			// if(!status.ok())return status;
+ 			// status = cursor_.curIndex.Insert(&newPivot, newPage);
+ 			// if(!status.ok())return status;
+ 			return Status::IOError("hh");
+ 		}
+ 		else if(!status.ok())return status;
+ 		return Status::OK();
+ 	}
+ 	Status TransactionEnd(void){return Status::OK();}
+ private:
  	// for primary-bplus, not leaf
- 	Status DescendToLeaf(Value val){
- 		std::cout << "Engine DescendToLeaf"<< std::endl;
+ 	Status DescendToLeaf(Value* val, PageHandle& ret){
+ 		LOGFUNC();
  		Status status;
  		while(true){
- 			std::cout << "Descending" << std::endl;
- 			status = cursor_.curIndex.Descend(&val);
+ 			status = cursor_.curIndex.Descend(val);
  			if(!status.ok())break;
  		}
- 		status = cursor_.curMain.MoveTo(cursor_.curIndex.protrude());
- 		if(!status.ok())return status;
- 		return Status::OK();
- 	}
- 	Status Insert(Slice& slice){
- 		std::cout << "Engine Insert" << std::endl;
- 		Status status;
- 		Value primary = slice[0];
- 		status = cursor_.curIndex.Rewind();
- 		std::cout << "Rewinded" << std::endl;
- 		if(!status.ok())return status;
- 		PageHandle hMain;
- 		status = DescendToLeaf(primary);
- 		std::cout << "Descended" << std::endl;
- 		if(!status.ok())return status;
- 		status = cursor_.curMain.Insert(&slice);
- 		std::cout << "Inserted" << std::endl;
- 		if(!status.ok())return status;
- 		return Status::OK();
- 	}
- 	Status Get(Value val, std::vector<Slice>& ret){
- 		std::cout << "Engine Get" << std::endl;
- 		// if primary, check bflow first
- 		// index query
- 		Status status;
- 		status = cursor_.curIndex.Rewind();
- 		if(!status.ok())return status;
- 		status = DescendToLeaf(val);
- 		if(!status.ok())return status;
- 		std::cout << "Descended" << std::endl;
- 		status = cursor_.curMain.GetMatch(&val, ret);
- 		if(!status.ok())return status;
+ 		ret = cursor_.curIndex.protrude();
  		return Status::OK();
  	}
 
- 	// Status GetInRange(Value* min, Value* max, std::vector<Slice>& ret);
+
+ 	// Status InsertIndex(Value key, PageHandle hPage){
+ 	// 	Status status = DescendToLeaf(key);
+ 	// 	if(!status.ok())return status;
+ 	// 	status = cursor_.curIndex.Insert(key, hPage);
+ 	// 	if(status.IsIOError()){ // index page full
+ 	// 		while(true){ 				
+ 	// 			status = cursor_.curIndex.InsertOnSplit(&key, hPage);
+ 	// 			if(!status.ok())return status;
+ 	// 			status = cursor_.curIndex.Ascend();
+ 	// 			if(status.IsIOError()){ // already at top
+ 	// 				cursor_.curIndex.MakeRoot(&key, hPage);
+
+ 	// 			}
+ 	// 			else if(!status.ok())return status;
+ 	// 			status = cursor_.curIndex.Insert(&key, hPage);
+ 	// 			if(!status.IsIOError()){
+ 	// 				return status;
+ 	// 			}
+
+ 	// 		}
+
+ 	// 	}
+ 	// 	else if(!status.ok())return status;
+ 	// 	return Status::OK();
+ 	// }
+ 	// Status UpdateAllIndex(Slice* slice, PageHandle hPage){
+ 	// 	Status status;
+ 	// 	if(slice == nullptr || cursor_.pTable == nullptr)return Status::Corruption("Invalid slice or ptable.");
+ 	// 	int idxIndex = cursor_.idxIndex;
+ 	// 	for(int i = 0; i < slice->attributeCount(); i++){
+ 	// 		PageHandle hIndex = cursor_.pTable->schema.GetIndexHandle(i);
+ 	// 		if(hIndex == 0) continue; // no index on it
+ 	// 		cursor_.curIndex.Set( slice->GetValue(i).type(), hIndex );
+ 	// 		DescendToLeaf(slice->GetValue(i));
+ 	// 		status = cursor_.curIndex.Insert(slice->GetValue(i), hPage);
+ 	// 		if(status.IsIOError()){ // index page full
+
+ 	// 		}
+ 	// 		else if(!status.ok())return status;
+ 	// 	}
+ 	// 	// restore index cursor
+ 	// 	PageHandle hIndex = pTable->schema.GetIndexHandle(idxIndex);
+ 	// 	if(hIndex == 0) return Status::Corruption("Index cursor corrupted.");
+ 	// 	cursor_.curIndex.Set(pTable->schema[idxIndex].type(), hIndex);
+ 	// 	return Status::OK();
+ 	// }
+
 
 };
-
-// struct RuntimeHolder{
-// 	int pc;
-// 	std::vector<Value*> valueStack;
-// 	std::vector<Slice*> recordStack;
-// };
 
 } // namespace sbase
 
 
-#endif // SBASE_DB_ENGINE_H_
+#endif // SBASE_DB_ENGINE_H_ 

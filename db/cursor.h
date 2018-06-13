@@ -67,11 +67,21 @@ class BFlowCursor{
   Status ShiftRight(void);
   Status ShiftLeft(void);
   Status Rewind(void);
+  PageHandle leftHandle(void){
+    assert(page_->GetPageType(set_.hPage) == kBFlowPage);
+    PageRef ref(page_, set_.hPage, kReadOnly);
+    read_page(ref.ptr+sizeof(BlockHeader));
+    return set_.hNext;
+  }
+  PageHandle currentHandle(void){
+    return set_.hPage;
+  }
   // Query //
-  Status GetMatch(Value* key, SliceContainer& ret);
+  Status Get(Value* min, Value* max, bool& left, bool& right, SliceContainer& ret);
+  // Status GetMatch(Value* key, SliceContainer& ret);
   // in: lequal/requal specify wheather the range is open
   // out: lequal.requal return prediction of neighbor pages
-  Status GetInRange(Value* min, Value* max, tuple<bool,bool>& query, SliceContainer& ret);
+  // Status GetInRange(Value* min, Value* max, tuple<bool,bool>& query, SliceContainer& ret);
   // Modify //
   // page
   Status Split(Value* val, PageHandle& ret);

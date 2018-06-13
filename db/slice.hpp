@@ -18,7 +18,7 @@
 #include <functional>
 #include <vector>
 #include <cassert>
-
+#include <deque>
 
 namespace sbase{
 
@@ -29,7 +29,7 @@ namespace sbase{
 // print out record
 
 typedef Object Slice;
-using SliceContainer = std::vector<Object>;
+using SliceContainer = std::deque<Object>;
 
 // Field //
 class Schema: public ClassDef{

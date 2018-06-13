@@ -135,45 +135,47 @@ Status BFlowCursor::Rewind(void){
   return Status::OK();
 }
 // Query
-Status BFlowCursor::GetMatch(Value* key, SliceContainer& ret){
-  std::cout << "BFlowCursor: GetMatch" << std::endl;
-  assert(page_->GetPageType(set_.hPage) == kBFlowPage);
-  assert(!key || schema_->GetPrimaryAttr().type() == key->type());
-  PageRef ref(page_, set_.hPage, kReadOnly); 
-  std::cout << "Pointer is Nil: " << (ref.ptr==nullptr) << std::endl;
-  read_page(ref.ptr + sizeof(BlockHeader));
-  char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
-  Slice* slice = schema_->NewObject();
-  int stripe = schema_->length();
-  if(key == nullptr){
-    for(int i = 0; i < set_.nSize; i++){
-      slice->Read(basePtr + stripe * i);
-      ret.push_back((*slice));
-    }
-    return Status::OK();
-  }
-  std::cout << "GetMatch: lower_close_bound" << std::endl;
-  char* match = lower_close_bound(basePtr, set_.nSize, key, stripe);
-  std::cout << "Match is Nil: " << (match==nullptr) << std::endl;
-  std::cout << "Match place: " << (match-basePtr)/stripe << std::endl;
-  char* endPtr = basePtr + set_.nSize * stripe;
-  if(match == nullptr)return Status::OK();
-  Value cur(key->type(), match);
-  std::cout << std::string(cur) << std::endl;
-  while(match < endPtr && cur == *key){
-    slice->Read(match);
-    ret.push_back((*slice));
-    match += stripe;
-    cur.Read(match);
-  }
-  return Status::OK();
-}
-Status BFlowCursor::GetInRange(Value* min, Value* max, tuple<bool,bool>& query, SliceContainer& ret){
+// Status BFlowCursor::GetMatch(Value* key, SliceContainer& ret){
+//   std::cout << "BFlowCursor: GetMatch" << std::endl;
+//   assert(page_->GetPageType(set_.hPage) == kBFlowPage);
+//   assert(!key || schema_->GetPrimaryAttr().type() == key->type());
+//   PageRef ref(page_, set_.hPage, kReadOnly); 
+//   std::cout << "Pointer is Nil: " << (ref.ptr==nullptr) << std::endl;
+//   read_page(ref.ptr + sizeof(BlockHeader));
+//   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
+//   Slice* slice = schema_->NewObject();
+//   int stripe = schema_->length();
+//   if(key == nullptr){
+//     for(int i = 0; i < set_.nSize; i++){
+//       slice->Read(basePtr + stripe * i);
+//       ret.push_back((*slice));
+//     }
+//     return Status::OK();
+//   }
+//   std::cout << "GetMatch: lower_close_bound" << std::endl;
+//   char* match = lower_close_bound(basePtr, set_.nSize, key, stripe);
+//   std::cout << "Match is Nil: " << (match==nullptr) << std::endl;
+//   std::cout << "Match place: " << (match-basePtr)/stripe << std::endl;
+//   char* endPtr = basePtr + set_.nSize * stripe;
+//   if(match == nullptr)return Status::OK();
+//   Value cur(key->type(), match);
+//   std::cout << std::string(cur) << std::endl;
+//   while(match < endPtr && cur == *key){
+//     slice->Read(match);
+//     ret.push_back((*slice));
+//     match += stripe;
+//     cur.Read(match);
+//   }
+//   return Status::OK();
+// }
+Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceContainer& ret){
+  std::cout << "BFlowCursor: Get" << std::endl;
   assert(page_->GetPageType(set_.hPage) == kBFlowPage);
   assert(!min || schema_->GetPrimaryAttr().type() == min->type());
   assert(!max || schema_->GetPrimaryAttr().type() == max->type());
   PageRef ref(page_, set_.hPage, kReadOnly); 
   read_page(ref.ptr + sizeof(BlockHeader));
+  std::cout << "BFlowCursor: read_page" << std::endl;
   int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
   char* endPtr = basePtr + set_.nSize * stripe;
@@ -183,61 +185,68 @@ Status BFlowCursor::GetInRange(Value* min, Value* max, tuple<bool,bool>& query, 
       slice->Read(basePtr + stripe * i);
       ret.push_back((*slice));
     }
-    std::get<0>(query) = true;
-    std::get<1>(query) = true;
+    left = true;
+    right = true;
     return Status::OK();
   }
-  if(min == nullptr){
+  if(min == nullptr){ // query x<max
     char* upper ;
-    if(std::get<1>(query))upper = upper_close_bound(basePtr, set_.nSize, max,stripe);
+    if(right)upper = upper_close_bound(basePtr, set_.nSize, max,stripe);
     else upper = upper_open_bound(basePtr, set_.nSize, max, stripe);
     char* curSlice = basePtr;
-    for(curSlice = basePtr; curSlice <endPtr; curSlice += stripe ){
+    if(!upper || upper>=endPtr)upper = endPtr-stripe;
+    for(curSlice = basePtr; curSlice <= upper; curSlice += stripe ){
       slice->Read(curSlice);
       ret.push_back((*slice));
     }
-    if(upper >= basePtr + set_.nSize * stripe)std::get<1>(query) = true;
-    else std::get<1>(query) = false;
-    std::get<0>(query) = true;
+    if(upper >= endPtr)left = true;
+    else left = false;
+    right = true;
     return Status::OK();
   }
-  if(max == nullptr){
+  if(max == nullptr){ // query x>min
     char* lower ;
-    if(std::get<0>(query))lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
+    if(left)lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
     else lower = lower_open_bound(basePtr, set_.nSize, min, stripe);
     char* curSlice = lower;
     for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
       slice->Read(curSlice);
       ret.push_back((*slice));
     }
-    if(lower <= basePtr)std::get<0>(query) = true;
-    else std::get<0>(query) = false;
-    std::get<1>(query) = true;
+    if(lower <= basePtr)right = true;
+    else right = false;
+    left = true;
     return Status::OK();   
   }
+  std::cout << "BFlowCursor: Searching" << std::endl;
   char* lower ;
-  if(std::get<0>(query))lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
+  if(left)lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
   else lower = lower_open_bound(basePtr, set_.nSize, min, stripe);
-  if(lower <= basePtr)std::get<0>(query) = true;
-  else std::get<0>(query) = true;
+  std::cout << "lower==nil: " << (lower==nullptr) << std::endl;
+  if(lower <= basePtr)left = true;
+  else left = true;
   char* curSlice = lower;
   Value cur(min->type());
   for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
     cur.Read(curSlice);
-    if(std::get<1>(query) && cur > (*max)){ // allow equal
-      std::get<1>(query) = false;
+    std::cout << std::string(cur) << std::endl;
+    std::cout << std::string(*max) << std::endl;
+    if(right && cur > (*max)){ // allow equal
+      right = false;
       return Status::OK();
     }
-    if(!std::get<1>(query) && cur >= (*max)){ // not equal
-      std::get<1>(query) = false;
+    if(!right && cur >= (*max)){ // not equal
+      right = false;
       return Status::OK();
     }
     slice->Read(curSlice);
+    std::cout << std::string(slice->GetValue(1)) << std::endl;
     ret.push_back((*slice));
   }
-  std::get<1>(query) = true;
+  right = true;
   return Status::OK();
 }
+
 // Modify
 Status BFlowCursor::Insert(Slice* record){
   std::cout << "BFlowCursor Insert" << std::endl;
@@ -267,7 +276,7 @@ Status BFlowCursor::Insert(Slice* record){
   BFlowHeader* header = reinterpret_cast<BFlowHeader*>(ref.ptr + sizeof(BlockHeader));
   header->nSize ++;
   record->Write(start);
-  record->Read(start);
+  std::cout << "write record" << std::endl;
   return Status::OK();
 }
 Status BFlowCursor::Delete(Value* key){

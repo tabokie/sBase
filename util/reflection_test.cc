@@ -9,7 +9,7 @@ TEST(ReflectionTest, CreateNewValue){
 	auto intv = Value(intT, std::string("9"));
 	EXPECT_EQ(intv.get<int>(), 9);
 	auto strv = Value(fixchar16T, std::string("test"));
-	EXPECT_EQ(strv.get<FixChar>(), string("test"));
+	EXPECT_EQ(strv.get<FixChar16>(), string("test"));
 }
 
 TEST(ReflectionTest, ComplexConvertion){
@@ -27,8 +27,8 @@ TEST(ReflectionTest, FromRealValue){
 	auto intv = Value(intT, new RealValue<int>(value));
 	EXPECT_EQ(intv.get<int>(), 177);
 	std::string str = "199";
-	auto strv = Value(fixchar16T, new RealValue<FixChar>( FixChar(16, str) ));
-	EXPECT_EQ(strv.get<FixChar>(), str);
+	auto strv = Value(fixchar16T, new RealValue<FixChar16>( FixChar16(str) ));
+	EXPECT_EQ(strv.get<FixChar16>(), str);
 }
 
 TEST(ReflectionTest, DefineClass){
@@ -52,7 +52,7 @@ TEST(ReflectionTest, DefineClass){
 	index = cdef1.GetAttributeIndex("attr1");
 	attr1 = cdef1.GetAttribute(index);
 	EXPECT_EQ(attr1.type(), fixchar16T);
-	attr1 = cdef1.GetAttribute(4);
+	attr1 = cdef1.GetAttribute(3);
 	EXPECT_EQ(attr1.type(), intT);
 	EXPECT_EQ(cdef1.length(), 4+16+4+4);
 }
@@ -74,6 +74,6 @@ TEST(ReflectionTest, CreateObj){
 	EXPECT_EQ(instance0.length(), 4+16+4);
 	// set by list
 	Object instance(&cdef, string("7"), string("yxy"), string("48.3"));
-	EXPECT_EQ(instance.GetValue("name").get<FixChar>(), string("yxy"));
+	EXPECT_EQ(instance.GetValue("name").get<FixChar16>(), string("yxy"));
 	EXPECT_EQ(instance.length(), 4+16+4);
 }

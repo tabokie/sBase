@@ -27,252 +27,101 @@ using std::stringstream;
 // #define FUNC() 							do{std::cout << __func__ << std::endl;if(FixChar::debugPtr)Put32Char(FixChar::debugPtr);}while(0)
 
 // Custom Type and util //
-struct FixChar{
-	// static char* debugPtr;
- private:
-	uint32_t length;
-	char* str; // len = length+1
- public:
- 	char* pointer(void){return str;}
- 	const char* const_pointer(void) const{
- 		return str;
- 	}
- 	size_t get_length(void) const{
- 		return length;
- 	}
-	FixChar(int len = 0):length(len),str(nullptr){
-		if(len < 0)length = 0;
-		str = new char[length+1]();
-		memset(str, 0, length+1);
-	}
-	FixChar(int len, std::string in):length(len),str(nullptr){
-		if(len < 0)length = 0;
-		str = new char[length + 1]();
-		memset(str, 0, length+1);
-		memcpy(str, in.c_str(), ((in.size()<length)?in.size():length) );
-	}
-	FixChar(const FixChar& rhs):length(rhs.length),str(nullptr){
-		str = new char[length + 1]();
-		memset(str, 0, length+1);
-		memcpy(str, rhs.str, length); // cut down overflow
-	}
-	~FixChar(){
-		// if(str)delete [] str;
-	}
-	operator std::string()const {
-		std::string tmp;
-		tmp = str;
-		// tmp.copy(str, length, 0);
-		// auto ret = std::string(str);
-		return tmp;
-	}
-	friend stringstream& operator>>(stringstream& is, FixChar& rhs){
-		memset(rhs.str, 0, rhs.length+1);
-		std::string tmp;
-		is >> tmp;
-		memcpy(rhs.str, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
-		// rhs.str[rhs.length] = '\0'; // in case of overflow
-		return is;
-	}
-	friend stringstream& operator<<(stringstream& os, const FixChar& rhs){
-		char* tmp = new char[rhs.length+1]();
-		memcpy(tmp, rhs.str, rhs.length+1);
-		// std::string tmp = rhs.str;
-		os << tmp;
-		delete [] tmp;
-		return os;
-	}	
-	friend istream& operator>>(istream& is, FixChar& rhs){
-		memset(rhs.str, 0, rhs.length+1);
-		std::string tmp;
-		is >> tmp;
-		memcpy(rhs.str, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
-		// rhs.str[rhs.length] = '\0'; // in case of overflow
-		return is;
-	}
-	friend ostream& operator<<(ostream& os, const FixChar& rhs){
-		char* tmp = new char[rhs.length+1];
-		memcpy(tmp, rhs.str, rhs.length+1);
-		// std::string tmp = rhs.str;
-		os << tmp;
-		delete [] tmp;
-		return os;
-	}
-	bool operator<(const FixChar& rhs) const{
-		return strcmp(str, rhs.str) < 0;
-	}
-	bool operator>(const FixChar& rhs) const{
-		return strcmp(str, rhs.str) > 0;
-	}
-	bool operator<=(const FixChar& rhs) const{
-		return strcmp(str, rhs.str) <= 0;
-	}
-	bool operator>=(const FixChar& rhs) const{
-		return strcmp(str, rhs.str) >= 0;
-	}
-	bool operator==(const FixChar& rhs) const{
-		return strcmp(str, rhs.str) == 0;
-	}
-	bool operator==(const std::string rhs) const{
-		return strcmp(str, rhs.c_str()) == 0;
-	}
-	bool operator>(const std::string rhs) const{
-		return strcmp(str, rhs.c_str()) > 0;
-	}
-	bool operator>=(const std::string rhs) const{
-		return strcmp(str, rhs.c_str()) >= 0;
-	}
-	bool operator<(const std::string rhs) const{
-		return strcmp(str, rhs.c_str()) < 0;
-	}
-	bool operator<=(const std::string rhs) const{
-		return strcmp(str, rhs.c_str()) <= 0;
-	}
-	friend bool operator==(const std::string lhs, const FixChar& rhs){
-		return rhs == lhs;
-	}
-	friend bool operator<(const std::string lhs, const FixChar& rhs){
-		return rhs < lhs;
-	}
-	friend bool operator>(const std::string lhs, const FixChar& rhs){
-		return rhs > lhs;
-	}
-	friend bool operator<=(const std::string lhs, const FixChar& rhs){
-		return rhs <= lhs;
-	}
-	friend bool operator>=(const std::string lhs, const FixChar& rhs){
-		return rhs >= lhs;
-	}
-};
+#define GENERATE_FIXCHAR(i)		struct FixChar##i {\
+ private:\
+ 	char str[i+1];\
+ public:\
+ 	char* pointer(void){return str;}\
+ 	const char* const_pointer(void) const{\
+ 		return str;\
+ 	}\
+ 	FixChar##i (std::string in){\
+ 		memset(str,0,i+1);\
+ 		int len = (in.size()<i)?in.size():i;\
+ 		memcpy(str, in.c_str(),len);\
+ 	}\
+ 	FixChar##i (){\
+ 		memset(str,0,i+1);\
+ 	}\
+ 	FixChar##i (const FixChar##i & rhs){\
+ 		memcpy(str, rhs.str, i);\
+ 		str[i] = 0;\
+ 	}\
+ 	operator std::string()const{\
+ 		return std::string(str);\
+ 	}\
+ 	friend istream& operator>>(istream& is, FixChar##i & rhs){\
+ 		memset(rhs.str,0,i+1);\
+		std::string in;\
+		is >> in;\
+ 		int len = (in.size()<i)?in.size():i;\
+ 		memcpy(rhs.str, in.c_str(),len);\
+		return is;\
+	}\
+	friend ostream& operator<<(ostream& os, const FixChar##i & rhs){\
+		os << rhs.str;\
+		return os;\
+	}\
+	bool operator<(const FixChar##i & rhs) const{\
+		return strcmp(str, rhs.str) < 0;\
+	}\
+	bool operator>(const FixChar##i & rhs) const{\
+		return strcmp(str, rhs.str) > 0;\
+	}\
+	bool operator<=(const FixChar##i & rhs) const{\
+		return strcmp(str, rhs.str) <= 0;\
+	}\
+	bool operator>=(const FixChar##i & rhs) const{\
+		return strcmp(str, rhs.str) >= 0;\
+	}\
+	bool operator==(const FixChar##i & rhs) const{\
+		return strcmp(str, rhs.str) == 0;\
+	}\
+	bool operator==(const std::string rhs) const{\
+		return strcmp(str, rhs.c_str()) == 0;\
+	}\
+	bool operator>(const std::string rhs) const{\
+		return strcmp(str, rhs.c_str()) > 0;\
+	}\
+	bool operator>=(const std::string rhs) const{\
+		return strcmp(str, rhs.c_str()) >= 0;\
+	}\
+	bool operator<(const std::string rhs) const{\
+		return strcmp(str, rhs.c_str()) < 0;\
+	}\
+	bool operator<=(const std::string rhs) const{\
+		return strcmp(str, rhs.c_str()) <= 0;\
+	}\
+	friend bool operator==(const std::string lhs, const FixChar##i & rhs){\
+		return rhs == lhs;\
+	}\
+	friend bool operator<(const std::string lhs, const FixChar##i & rhs){\
+		return rhs < lhs;\
+	}\
+	friend bool operator>(const std::string lhs, const FixChar##i & rhs){\
+		return rhs > lhs;\
+	}\
+	friend bool operator<=(const std::string lhs, const FixChar##i & rhs){\
+		return rhs <= lhs;\
+	}\
+	friend bool operator>=(const std::string lhs, const FixChar##i & rhs){\
+		return rhs >= lhs;\
+	}\
+}
 
-/*
-struct FixChar{
-	uint32_t length;
-	mutable char* fixchar; // len = length+1
-	FixChar(int len = 0):length(len),fixchar(nullptr){
-		std::cout << "create by len " << len << std::endl;
-		if(len < 0)length = 0;
-		// lazy initialization
-		// if(length > 0)fixchar = new char[length];
-	}
-	FixChar(int len, std::string in):length(len),fixchar(nullptr){
-		std::cout << "create by string " << len << " " << in << std::endl;
-		if(len < 0)length = 0;
-		fixchar = new char[length + 1]();
-		memset(fixchar, 0, length+1);
-		memcpy(fixchar, in.c_str(), ((in.size()<length)?in.size():length) );
-	}
-	FixChar(const FixChar& rhs):length(rhs.length),fixchar(nullptr){
-		std::cout << "create by reference " << std::string(rhs) << std::endl;
-		// std::cout << "Copy fixchar: " << rhs.length << rhs.fixchar << std::endl;
-		if(rhs.fixchar){
-			std::cout << rhs.fixchar << std::endl;
-			fixchar = new char[length + 1]();
-			memset(fixchar, 0, length+1);
-			memcpy(fixchar, rhs.fixchar, length); // cut down overflow
-			std::cout << fixchar << std::endl;
-		}
-	}
-	~FixChar(){
-		std::cout << "destroy" << std::endl;
-		if(fixchar){
-			delete [] fixchar;
-			fixchar = nullptr;
-		}
-	}
-	operator std::string()const {
-		if(!fixchar)return std::string("NaN");
-		return std::string(fixchar);
-	}
-	friend istream& operator>>(istream& is, FixChar& rhs){
-		if(rhs.length <= 0) return is;
-		if(!rhs.fixchar)rhs.fixchar = new char[rhs.length + 1]();
-		memset(rhs.fixchar, 0, rhs.length+1);
-		std::string tmp;
-		is >> tmp;
-		memcpy(rhs.fixchar, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
-		// rhs.fixchar[rhs.length] = '\0'; // in case of overflow
-		return is;
-	}
-	friend ostream& operator<<(ostream& os, const FixChar& rhs){
-		if(rhs.length <= 0 || !rhs.fixchar)return os;
-		os << rhs.fixchar;
-		return os;
-	}
-	bool operator<(const FixChar& rhs) const{
-		if(!fixchar && !rhs.fixchar)return false;
-		if(!fixchar)return true;
-		if(!rhs.fixchar)return false;
-		return strcmp(fixchar, rhs.fixchar) < 0;
-	}
-	bool operator>(const FixChar& rhs) const{
-		if(!fixchar && !rhs.fixchar)return false;
-		if(!fixchar)return false;
-		if(!rhs.fixchar)return true;
-		return strcmp(fixchar, rhs.fixchar) > 0;
-	}
-	bool operator<=(const FixChar& rhs) const{
-		if(!fixchar)return true;
-		if(!rhs.fixchar)return false;
-		return strcmp(fixchar, rhs.fixchar) <= 0;
-	}
-	bool operator>=(const FixChar& rhs) const{
-		if(!rhs.fixchar)return true;
-		if(!fixchar)return false;
-		return strcmp(fixchar, rhs.fixchar) >= 0;
-	}
-	bool operator==(const FixChar& rhs) const{
-		if(!fixchar && !rhs.fixchar)return true;
-		if(!fixchar || !rhs.fixchar)return false;
-		return strcmp(fixchar, rhs.fixchar) == 0;
-	}
-	bool operator==(const std::string rhs) const{
-		if(!fixchar)return rhs.length()==0;
-		return strcmp(fixchar, rhs.c_str()) == 0;
-	}
-	bool operator>(const std::string rhs) const{
-		if(!fixchar)return false;
-		return strcmp(fixchar, rhs.c_str()) > 0;
-	}
-	bool operator>=(const std::string rhs) const{
-		if(!fixchar)return rhs.length()==0;
-		return strcmp(fixchar, rhs.c_str()) >= 0;
-	}
-	bool operator<(const std::string rhs) const{
-		if(!fixchar)return rhs.length()!=0;
-		return strcmp(fixchar, rhs.c_str()) < 0;
-	}
-	bool operator<=(const std::string rhs) const{
-		if(!fixchar)return true;
-		return strcmp(fixchar, rhs.c_str()) <= 0;
-	}
-	friend bool operator==(const std::string lhs, const FixChar& rhs){
-		return rhs == lhs;
-	}
-	friend bool operator<(const std::string lhs, const FixChar& rhs){
-		return rhs < lhs;
-	}
-	friend bool operator>(const std::string lhs, const FixChar& rhs){
-		return rhs > lhs;
-	}
-	friend bool operator<=(const std::string lhs, const FixChar& rhs){
-		return rhs <= lhs;
-	}
-	friend bool operator>=(const std::string lhs, const FixChar& rhs){
-		return rhs >= lhs;
-	}
-};
-*/
+GENERATE_FIXCHAR(8);
+GENERATE_FIXCHAR(16);
+GENERATE_FIXCHAR(32);
+GENERATE_FIXCHAR(64);
+GENERATE_FIXCHAR(128);
+GENERATE_FIXCHAR(256);
+
+#undef GENERATE_FIXCHAR
+
 template<typename T>
 struct TypeLen{ 
   size_t operator()(const T& key) const{
     return sizeof(key);
-  }
-};
-// special for string
-template<> struct TypeLen<FixChar>{
-  size_t operator()(const FixChar& fixchar) const{
-  	return fixchar.get_length();
   }
 };
 
@@ -285,18 +134,32 @@ struct TypeBlob{
 		return reinterpret_cast<char*>(&key);
 	}
 };
-template<> struct TypeBlob<FixChar>{
-	char* operator()(FixChar& key){
-		return key.pointer();
-	}
-	const char* operator()(const FixChar& key){
-		return key.const_pointer();
-	}
-	// char* operator()(FixChar& key){
-	// 	// if(!key.fixchar)key.fixchar = new char[key.length+1]();
-	// 	return key.str.c_str();
-	// }
-};
+
+#define GENERATE_FIXCHAR_TYPELEN(i) 	template<> struct TypeLen<FixChar##i >{\
+  size_t operator()(const FixChar##i & fixchar) const{\
+  	return i;\
+  }\
+};\
+template<> struct TypeBlob<FixChar##i >{\
+	char* operator()(FixChar##i & key){\
+		return key.pointer();\
+	}\
+	const char* operator()(const FixChar##i & key){\
+		return key.const_pointer();\
+	}\
+}
+
+GENERATE_FIXCHAR_TYPELEN(8);
+GENERATE_FIXCHAR_TYPELEN(16);
+GENERATE_FIXCHAR_TYPELEN(32);
+GENERATE_FIXCHAR_TYPELEN(64);
+GENERATE_FIXCHAR_TYPELEN(128);
+GENERATE_FIXCHAR_TYPELEN(256);
+
+#undef GENERATE_FIXCHAR_TYPELEN
+
+
+
 
 
 // Type and Value //
@@ -786,6 +649,7 @@ class Object{
  		return ; 		
  	}
  	size_t length(void) const{if(!class_)return 0; return class_->length();}
+ 	size_t attributeCount(void) const{if(!class_)return 0;return class_->attributeCount(); }
  private:
  	void InitAttributeValue(void){
 		
