@@ -1,6 +1,6 @@
 #include ".\util\reflection.hpp"
 
-
+// char* FixChar::debugPtr = nullptr;
 std::stringstream BaseValue::ConvertHelper_("");
 
 BaseValue* Type::prototypes[unknownT] = {
@@ -9,7 +9,7 @@ BaseValue* Type::prototypes[unknownT] = {
 	new RealValue<uint32_t>(0),
 	new RealValue<int64_t>(0x8000000000000000LL),
 	// new RealValue<int64_t>(-9223372036854775808LL),
-	new RealValue<double>(-1.0/0.0), // -inf
+	new RealValue<double>(-1.0/0.00000000000000001), // -inf
 	new RealValue<FixChar>(FixChar(8)),
 	new RealValue<FixChar>(FixChar(16)),
 	new RealValue<FixChar>(FixChar(32)),

@@ -9,7 +9,7 @@
 #include ".\storage\file_format.hpp"
 #include ".\storage\page_ref.hpp"
 #include ".\util\utility.hpp"
-// #include ".\db\cursor.h"
+#include ".\db\cursor.h"
 
 #include <memory> // shared_ptr
 #include <vector>
@@ -80,9 +80,10 @@ class Engine: public NoCopy{
 		BFlowCursor curMain;
 		size_t nIndex;
 		BPlusCursor curIndex;
+		CursorHolder(PageManager* manager):pTable(nullptr),curMain(manager),nIndex(0),curIndex(manager){ }
 	} cursor_;
  public:
- 	Engine() = default;
+ 	Engine():cursor_(&manager){ }
  	~Engine(){ }
  	inline TableMetaDataPtr GetTable(std::string name){
  		if(!database_.loaded)return nullptr;
@@ -113,26 +114,53 @@ class Engine: public NoCopy{
  		cursor_.curIndex.Set(pTable->schema[0].type(), hIndex);
  		return Status::OK();
  	}
+ 	Status OpenCursor(std::string table){
+ 		auto pTable = GetTable(table);
+ 		if(!pTable)return Status::InvalidArgument("Cannot find field.");
+ 		cursor_.curMain.Set(&pTable->schema, pTable->bflow_root);
+ 		return Status::OK();
+ 	}
  	// for primary-bplus, not leaf
  	Status DescendToLeaf(Value val){
-
+ 		std::cout << "Engine DescendToLeaf"<< std::endl;
+ 		Status status;
+ 		while(true){
+ 			std::cout << "Descending" << std::endl;
+ 			status = cursor_.curIndex.Descend(&val);
+ 			if(!status.ok())break;
+ 		}
+ 		status = cursor_.curMain.MoveTo(cursor_.curIndex.protrude());
+ 		if(!status.ok())return status;
+ 		return Status::OK();
  	}
- 	Status Insert(Slice slice){
- 		Value primary = slice[cursor_.nIndex];
- 		curIndex->ToRoot();
+ 	Status Insert(Slice& slice){
+ 		std::cout << "Engine Insert" << std::endl;
+ 		Status status;
+ 		Value primary = slice[0];
+ 		status = cursor_.curIndex.Rewind();
+ 		std::cout << "Rewinded" << std::endl;
+ 		if(!status.ok())return status;
  		PageHandle hMain;
- 		DescendToLeaf(primary, hMain);
- 		cursor_.curMain->Insert(slice);
+ 		status = DescendToLeaf(primary);
+ 		std::cout << "Descended" << std::endl;
+ 		if(!status.ok())return status;
+ 		status = cursor_.curMain.Insert(&slice);
+ 		std::cout << "Inserted" << std::endl;
+ 		if(!status.ok())return status;
+ 		return Status::OK();
  	}
  	Status Get(Value val, std::vector<Slice>& ret){
+ 		std::cout << "Engine Get" << std::endl;
  		// if primary, check bflow first
  		// index query
- 		curIndex->ToRoot();
- 		PageHandle hMain;
- 		DescendToLeaf(val, hMain);
- 		if(hMain == 0)return Status::OK();
- 		cursor_.curMain->CurseTo(hMain);
- 		cursor_.curMain->Get(val, ret);
+ 		Status status;
+ 		status = cursor_.curIndex.Rewind();
+ 		if(!status.ok())return status;
+ 		status = DescendToLeaf(val);
+ 		if(!status.ok())return status;
+ 		std::cout << "Descended" << std::endl;
+ 		status = cursor_.curMain.GetMatch(&val, ret);
+ 		if(!status.ok())return status;
  		return Status::OK();
  	}
 

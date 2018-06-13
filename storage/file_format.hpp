@@ -79,6 +79,8 @@ const size_t kBlockSize = 4; // use KB as internal unit
 const size_t kBlockLen = kBlockSize * 1024;
 const size_t kBFlowHeaderLen = sizeof(BFlowHeader);
 const size_t kBFlowDataLen = kBlockLen - kBFlowHeaderLen;
+const size_t kBPlusHeaderLen = sizeof(BPlusHeader);
+const size_t kBPlusDataLen = kBlockLen - kBPlusHeaderLen;
 
 // Database root page stores
 const std::string kDatabaseRootPath = "root";

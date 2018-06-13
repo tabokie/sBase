@@ -2,7 +2,7 @@
 
 namespace sbase{
 
-#if defined(__WIN32) || defined(__WIN64)
+#if defined(__WIN32) || defined(__WIN64) || defined(_MSC_VER)
 
 // Base Type :: Writabel File //
 Status WritableFile::Open(void){

@@ -11,6 +11,7 @@
 #include <memory>
 #include <cstdint>
 #include <memory>
+#include <iostream>
 
 namespace sbase{
 

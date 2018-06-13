@@ -149,9 +149,9 @@ Status PageManager::NewPage(FileHandle hFile, PageType type, PageHandle& hPage){
   // write to this file
   auto pPage = GetPage(hPage);
   if(!pPage)return Status::Corruption("?");
-  pPage->type = type;
   pPage->latch.WriteLock();
   Pool(hPage, false);
+  pPage->type = type; // now override type // ERROR
   char* data = GetPageDataPtr(hPage);
   if(!data){
     pPage->latch.ReleaseWriteLock();

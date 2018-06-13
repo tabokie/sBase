@@ -62,7 +62,6 @@ Status Engine::CreateTable(Schema& schema){
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
 	// write to table root
 	PageRef tableRootRef(&manager, hPage, kLazyModify);
-	memset(tableRootRef.ptr, 1, 4096);
 	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr);
 	tableHeader->hBlockCode = kTableRoot;
 	tableHeader->oManifest0 = sizeof(ManifestBlockHeader);
@@ -82,7 +81,7 @@ Status Engine::CreateTable(Schema& schema){
 	for(int i = 0; i < fieldSize; i++, cur += stripe){
 		auto attr = schema.GetAttribute(i);
 		Slice fieldSlice(&kTableSchemaManifestSchema,\
-			{Value(tinyintT, i),\
+			{Value(tinyintT, new RealValue<int8_t>(i)),\
 			Value(fixchar32T, attr.name()),\
 			Value(tinyintT, new RealValue<int8_t>(attr.type())),\
 			Value(tinyintT, new RealValue<int8_t>(schema.isPrimary(i))),\
@@ -98,7 +97,13 @@ Status Engine::CreateTable(Schema& schema){
 		{Value(tinyintT, new RealValue<int8_t>(kBFlowIndex)),\
 		Value(tinyintT, new RealValue<int8_t>(indexPrimary)),\
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
+	PageHandle hBFlow = hPage;
 	pTableMeta->bflow_root = hPage;
+	PageRef bflowRootRef(&manager, hPage, kLazyModify);
+	BFlowHeader* bflowHeader = reinterpret_cast<BFlowHeader*>(bflowRootRef.ptr + sizeof(BlockHeader));
+	bflowHeader->nSize = 0;
+	bflowHeader->hPri = 0;
+	bflowHeader->hNext = 0;
 	// create bplus index
 	status = manager.NewPage(database_.database_root, kBPlusPage, hPage);
 	Slice bplusTableRecord(&kTableIndexManifestSchema, \
@@ -109,13 +114,14 @@ Status Engine::CreateTable(Schema& schema){
 	PageRef bplusRootRef(&manager, hPage, kLazyModify);
 	// init bplus index page : infinity branch point to bflow
 	BPlusHeader* bplusHeader = reinterpret_cast<BPlusHeader*>(bplusRootRef.ptr + sizeof(BlockHeader));
-	bplusHeader->oTop = 1; // only one : infinity
+	bplusHeader->nSize = 1; // only one : infinity
+	bplusHeader->hRight = 0;
 	TypeT primaryType = schema.GetAttribute(indexPrimary).type();
 	std::vector<Attribute> tmp{Attribute("Key",primaryType), Attribute("Handle",uintT)};
 	Schema bplusRecordSchema("BPlusRecord", tmp.begin(), tmp.end());
 	Slice bplusInfinityRecord(&bplusRecordSchema,\
 	 {Value::InfinityValue(primaryType),\
-	 Value(uintT, new RealValue<uint32_t>(hPage))});
+	 Value(uintT, new RealValue<uint32_t>(hBFlow))});
 	bplusInfinityRecord.Write(bplusRootRef.ptr + sizeof(BlockHeader) + sizeof(BPlusHeader));
 	// write tables to table root
 	cur = tableRootRef.ptr + tableHeader->oManifest1;
@@ -195,11 +201,14 @@ Status Engine::LoadTable(std::string name){
 	Slice* fieldSlice = kTableSchemaManifestSchema.NewObject();
 	for(int i = 0; i < tableRootHeader->nManifest0; i++, cur += fieldSlice->length()){
 		fieldSlice->Read(cur);
-		pMeta->schema.AddField(\
-			Attribute( static_cast<std::string>((*fieldSlice)[0].get<FixChar>()),\
-				static_cast<TypeT>((*fieldSlice)[1].get<int8_t>()) ), \
-			static_cast<bool>((*fieldSlice)[2].get<int8_t>()),\
-			static_cast<bool>((*fieldSlice)[3].get<int8_t>()));
+		// index and unique
+		pMeta->schema.AppendField(\
+			Attribute( static_cast<std::string>((*fieldSlice)[1].get<FixChar>()),\
+				static_cast<TypeT>((*fieldSlice)[2].get<int8_t>()) ), \
+			static_cast<bool>((*fieldSlice)[0].get<int8_t>()),\
+			static_cast<bool>((*fieldSlice)[4].get<int8_t>()) );
+		// only first is primary
+		assert( (static_cast<bool>((*fieldSlice)[3].get<int8_t>())==false) ^ (i ==0) );
 		// logvar(static_cast<std::string>((*fieldSlice)[0].get<FixChar>()));
 	}
 	// read index map

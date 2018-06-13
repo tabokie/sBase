@@ -48,6 +48,11 @@ struct FileWrapper: public NoCopy{
   inline size_t size(void){return static_cast<int>(page_size);}
   // weak consistency
   inline PagePtr& operator[](size_t idx){
+    // std::cout << "AddPage: " ;
+    // std::cout << "(file)" << static_cast<int>(hFile);
+    // for(auto& p: pages){
+    //   if(p)std::cout << "(page)" << p->type;
+    // }
     PageNum inner = (idx & PageNumMask) - 1; // safety
     assert(inner >= 0 && inner < page_size);
     return pages[inner];
@@ -56,6 +61,12 @@ struct FileWrapper: public NoCopy{
     return (*this)[idx];
   }
   PageNum AddPage(PagePtr p){
+    // std::cout << "AddPage: " ;
+    // std::cout << "(file)" << static_cast<int>(hFile);
+    // for(auto& p: pages){
+    //   if(p)std::cout << "(page)" << p->type;
+    // }
+    // std::cout << endl;
     // LOG_FUNC();
     size_t ret;
     // sync
@@ -243,7 +254,7 @@ class PageManager: public NoCopy{
   PageType GetPageType(PageHandle hPage){
     auto pPage = GetPage(hPage);
     if(!pPage)return kUnknownPage;
-    if(pPage->type == kUnknownPage)PoolFromDisk(hPage);
+    if(pPage->type == kUnknownPage)PoolFromDisk(hPage, false); // ERROR
     return pPage->type;
   }
   // Public File Header Mpdifier //

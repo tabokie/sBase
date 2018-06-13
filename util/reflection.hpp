@@ -1,6 +1,7 @@
 #ifndef SBASE_UTIL_REFLECTION_HPP_
 #define SBASE_UTIL_REFLECTION_HPP_
 
+#include <cstring>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -15,46 +16,182 @@
 #include <iostream>
 using std::istream;
 using std::ostream;
+using std::stringstream;
 
 // NOTICE //
 // unsafe constructor using naked char*
 // causing explicit difference between char* and std::string
 // only use string to construct by literal
+// #define Put32Char(str) 			do{if(str){printf("%d: ",str); for(int i = 0; i < 32; i++)printf("%02x ", str[i]);printf("\n");}else{printf("NAN\n");}}while(0)
+// #define Put32CharS(str) 			do{if(str){FixChar::debugPtr = str;printf("%d: ",str); for(int i = 0; i < 32; i++)printf("%02x ", str[i]);printf("\n");}else{printf("NAN\n");}}while(0)
+// #define FUNC() 							do{std::cout << __func__ << std::endl;if(FixChar::debugPtr)Put32Char(FixChar::debugPtr);}while(0)
 
 // Custom Type and util //
+struct FixChar{
+	// static char* debugPtr;
+ private:
+	uint32_t length;
+	char* str; // len = length+1
+ public:
+ 	char* pointer(void){return str;}
+ 	const char* const_pointer(void) const{
+ 		return str;
+ 	}
+ 	size_t get_length(void) const{
+ 		return length;
+ 	}
+	FixChar(int len = 0):length(len),str(nullptr){
+		if(len < 0)length = 0;
+		str = new char[length+1]();
+		memset(str, 0, length+1);
+	}
+	FixChar(int len, std::string in):length(len),str(nullptr){
+		if(len < 0)length = 0;
+		str = new char[length + 1]();
+		memset(str, 0, length+1);
+		memcpy(str, in.c_str(), ((in.size()<length)?in.size():length) );
+	}
+	FixChar(const FixChar& rhs):length(rhs.length),str(nullptr){
+		str = new char[length + 1]();
+		memset(str, 0, length+1);
+		memcpy(str, rhs.str, length); // cut down overflow
+	}
+	~FixChar(){
+		// if(str)delete [] str;
+	}
+	operator std::string()const {
+		std::string tmp;
+		tmp = str;
+		// tmp.copy(str, length, 0);
+		// auto ret = std::string(str);
+		return tmp;
+	}
+	friend stringstream& operator>>(stringstream& is, FixChar& rhs){
+		memset(rhs.str, 0, rhs.length+1);
+		std::string tmp;
+		is >> tmp;
+		memcpy(rhs.str, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
+		// rhs.str[rhs.length] = '\0'; // in case of overflow
+		return is;
+	}
+	friend stringstream& operator<<(stringstream& os, const FixChar& rhs){
+		char* tmp = new char[rhs.length+1]();
+		memcpy(tmp, rhs.str, rhs.length+1);
+		// std::string tmp = rhs.str;
+		os << tmp;
+		delete [] tmp;
+		return os;
+	}	
+	friend istream& operator>>(istream& is, FixChar& rhs){
+		memset(rhs.str, 0, rhs.length+1);
+		std::string tmp;
+		is >> tmp;
+		memcpy(rhs.str, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
+		// rhs.str[rhs.length] = '\0'; // in case of overflow
+		return is;
+	}
+	friend ostream& operator<<(ostream& os, const FixChar& rhs){
+		char* tmp = new char[rhs.length+1];
+		memcpy(tmp, rhs.str, rhs.length+1);
+		// std::string tmp = rhs.str;
+		os << tmp;
+		delete [] tmp;
+		return os;
+	}
+	bool operator<(const FixChar& rhs) const{
+		return strcmp(str, rhs.str) < 0;
+	}
+	bool operator>(const FixChar& rhs) const{
+		return strcmp(str, rhs.str) > 0;
+	}
+	bool operator<=(const FixChar& rhs) const{
+		return strcmp(str, rhs.str) <= 0;
+	}
+	bool operator>=(const FixChar& rhs) const{
+		return strcmp(str, rhs.str) >= 0;
+	}
+	bool operator==(const FixChar& rhs) const{
+		return strcmp(str, rhs.str) == 0;
+	}
+	bool operator==(const std::string rhs) const{
+		return strcmp(str, rhs.c_str()) == 0;
+	}
+	bool operator>(const std::string rhs) const{
+		return strcmp(str, rhs.c_str()) > 0;
+	}
+	bool operator>=(const std::string rhs) const{
+		return strcmp(str, rhs.c_str()) >= 0;
+	}
+	bool operator<(const std::string rhs) const{
+		return strcmp(str, rhs.c_str()) < 0;
+	}
+	bool operator<=(const std::string rhs) const{
+		return strcmp(str, rhs.c_str()) <= 0;
+	}
+	friend bool operator==(const std::string lhs, const FixChar& rhs){
+		return rhs == lhs;
+	}
+	friend bool operator<(const std::string lhs, const FixChar& rhs){
+		return rhs < lhs;
+	}
+	friend bool operator>(const std::string lhs, const FixChar& rhs){
+		return rhs > lhs;
+	}
+	friend bool operator<=(const std::string lhs, const FixChar& rhs){
+		return rhs <= lhs;
+	}
+	friend bool operator>=(const std::string lhs, const FixChar& rhs){
+		return rhs >= lhs;
+	}
+};
 
+/*
 struct FixChar{
 	uint32_t length;
 	mutable char* fixchar; // len = length+1
 	FixChar(int len = 0):length(len),fixchar(nullptr){
-		if(length < 0)length = 0;
+		std::cout << "create by len " << len << std::endl;
+		if(len < 0)length = 0;
 		// lazy initialization
 		// if(length > 0)fixchar = new char[length];
 	}
 	FixChar(int len, std::string in):length(len),fixchar(nullptr){
-		if(length < 0)length = 0;
+		std::cout << "create by string " << len << " " << in << std::endl;
+		if(len < 0)length = 0;
 		fixchar = new char[length + 1]();
+		memset(fixchar, 0, length+1);
 		memcpy(fixchar, in.c_str(), ((in.size()<length)?in.size():length) );
 	}
 	FixChar(const FixChar& rhs):length(rhs.length),fixchar(nullptr){
+		std::cout << "create by reference " << std::string(rhs) << std::endl;
+		// std::cout << "Copy fixchar: " << rhs.length << rhs.fixchar << std::endl;
 		if(rhs.fixchar){
+			std::cout << rhs.fixchar << std::endl;
 			fixchar = new char[length + 1]();
+			memset(fixchar, 0, length+1);
 			memcpy(fixchar, rhs.fixchar, length); // cut down overflow
+			std::cout << fixchar << std::endl;
 		}
 	}
 	~FixChar(){
-		if(fixchar)delete [] fixchar;
+		std::cout << "destroy" << std::endl;
+		if(fixchar){
+			delete [] fixchar;
+			fixchar = nullptr;
+		}
 	}
 	operator std::string()const {
+		if(!fixchar)return std::string("NaN");
 		return std::string(fixchar);
 	}
 	friend istream& operator>>(istream& is, FixChar& rhs){
 		if(rhs.length <= 0) return is;
-		if(!rhs.fixchar && rhs.length > 0)rhs.fixchar = new char[rhs.length + 1]();
+		if(!rhs.fixchar)rhs.fixchar = new char[rhs.length + 1]();
+		memset(rhs.fixchar, 0, rhs.length+1);
 		std::string tmp;
 		is >> tmp;
 		memcpy(rhs.fixchar, tmp.c_str(), ((tmp.size()<rhs.length)?tmp.size():rhs.length));
-		rhs.fixchar[rhs.length] = '\0'; // in case of overflow
+		// rhs.fixchar[rhs.length] = '\0'; // in case of overflow
 		return is;
 	}
 	friend ostream& operator<<(ostream& os, const FixChar& rhs){
@@ -125,7 +262,7 @@ struct FixChar{
 		return rhs >= lhs;
 	}
 };
-
+*/
 template<typename T>
 struct TypeLen{ 
   size_t operator()(const T& key) const{
@@ -135,7 +272,7 @@ struct TypeLen{
 // special for string
 template<> struct TypeLen<FixChar>{
   size_t operator()(const FixChar& fixchar) const{
-  	return fixchar.length;
+  	return fixchar.get_length();
   }
 };
 
@@ -149,10 +286,16 @@ struct TypeBlob{
 	}
 };
 template<> struct TypeBlob<FixChar>{
-	char* operator()(const FixChar& key){
-		if(!key.fixchar)key.fixchar = new char[key.length+1]();
-		return key.fixchar;
+	char* operator()(FixChar& key){
+		return key.pointer();
 	}
+	const char* operator()(const FixChar& key){
+		return key.const_pointer();
+	}
+	// char* operator()(FixChar& key){
+	// 	// if(!key.fixchar)key.fixchar = new char[key.length+1]();
+	// 	return key.str.c_str();
+	// }
 };
 
 
@@ -172,7 +315,7 @@ class BaseValue{
  	static std::stringstream ConvertHelper_;
  public:
  	// template constructor
- 	virtual ~BaseValue(){ }
+ 	virtual ~BaseValue(){  };
  	virtual BaseValue* clone() const = 0;
  	virtual std::string ToString() const = 0;
  	virtual void FromString(const std::string) = 0;
@@ -206,6 +349,7 @@ class RealValue: public BaseValue{
  	// explicit define
  	RealValue(PlainType v):val(v){ }
  	RealValue(const RealValue<PlainType>& rhs):val(rhs.val){ }
+ 	~RealValue() override {  }
  	BaseValue* clone(void) const{
  		return new RealValue<PlainType>(*this);
  	}
@@ -225,6 +369,7 @@ class RealValue: public BaseValue{
  	}
  	// blob convert
  	void FromBlob(const Blob bob){
+		
  		if(TypeLen<PlainType>{}(val) != bob.len){
  			return ;
  		}
@@ -232,19 +377,23 @@ class RealValue: public BaseValue{
  		return ;
  	}
  	Blob ToBlob(void) const{
+		
  		return Blob( TypeBlob<PlainType>{}(val),TypeLen<PlainType>{}(val));
  	}
  	// unsafe approach
  	void FromNakedPtr(const char* src){
+		
  		memcpy(TypeBlob<PlainType>{}(val), src, TypeLen<PlainType>{}(val) );
  		return ;
  	}
  	void ToNakedPtr(char* des) const{
+		
  		memcpy(des, TypeBlob<PlainType>{}(val), TypeLen<PlainType>{}(val) );
  		return ;
  	}
  	// set
  	void set(BaseValue const* v){
+		
  		if(v){
  			val = (static_cast<const RealValue<PlainType>*>(v)->val);
  		}
@@ -326,7 +475,7 @@ class Value{
  		return Value(type, Type::InfinityValue(type));
  	}	
 	// Value(BaseValue const& v):val(v.clone()){ }
-	Value(Value const& rhs):val(rhs.val ? rhs.val->clone() : nullptr),type_(rhs.type_){ }
+	Value(const Value& rhs):val(rhs.val ? rhs.val->clone() : nullptr),type_(rhs.type_){ }
 	explicit Value(TypeT typeId, BaseValue* pv):val(pv),type_(typeId){ }
 	~Value(){if(val)delete val;}
 	Value& operator=(const Value& rhs){
@@ -354,11 +503,13 @@ class Value{
 	}
 	// inherit interface
 	Value(TypeT typeId = unknownT):val(nullptr),type_(typeId){
+		
 		if(typeId < unknownT){
 			val = Type::prototypes[type_]->clone();
 		}
 	}
 	Value(TypeT typeId, const std::string str):val(nullptr),type_(typeId){
+		
 		if(typeId < unknownT){
 			val = Type::prototypes[typeId]->clone();
 			val->FromString(str);
@@ -366,42 +517,51 @@ class Value{
 	}	
 	// unsafe interface
 	Value(TypeT typeId, const char* ptr):val(nullptr),type_(typeId){
+		
 		if(typeId < unknownT){
 			val = Type::prototypes[typeId]->clone();
 			val->FromNakedPtr(ptr);
 		}
 	}	
 	Value(TypeT typeId, const Blob bob):val(nullptr),type_(typeId){
+		
 		if(typeId < unknownT){
 			val = Type::prototypes[typeId]->clone();
 			val->FromBlob(bob);
 		}
 	}
 	void Read(const std::string str){
+		
 		if(!val)return ;
 		val->FromString(str);
 		return ;
 	}
 	void Read(const char* ptr){ // unsafe
+		
 		if(!val)return;
 		val->FromNakedPtr(ptr);
 		return ;
 	}
 	void Read(const Blob bob){
+		
 		if(!val)return;
 		val->FromBlob(bob);
 		return;
 	}
-	void Write(char* ptr){
+	void Write(char* ptr) const{
+		
 		if(val)val->ToNakedPtr(ptr);
 		return ;
 	}
 	operator std::string()const{
+		
+		if(!val)return std::string("NaN");
 		return val->ToString();
 		// if(!val)return std::string("");
 		// return val->ToString();
 	}
 	operator Blob()const{
+		
 		if(!val)return Blob();
 		return val->ToBlob();
 	}
@@ -500,6 +660,9 @@ class ClassDef{
 		definition_fix_(false){ 
 		BaseInit();
 	}
+	Attribute operator[](size_t idx) const{
+		return GetAttribute(idx);
+	}
 	bool AddAttribute(Attribute newAttr){
 		if(!definition_fix_){
 			effective_attr_.push_back(newAttr);
@@ -550,9 +713,11 @@ class Object{
 	std::vector<Value> values_;
  public:
  	Object(ClassDef const* cls):class_(cls){
+		
  		InitAttributeValue();
  	}
  	Object(ClassDef const* cls, const std::initializer_list<Value>& pack):class_(cls){
+		
  		assert(pack.size() <= class_->attributeCount());
  		auto attr = class_->attributeBegin();
  		for(auto& val : pack){
@@ -566,30 +731,36 @@ class Object{
  	}
  	template <class ...Args>
  	Object(ClassDef const* cls, Args... args):class_(cls){
+		
  		InitAttributeValue(args...);
  	} 	
  	Object(const Object& rhs):class_(rhs.class_),values_(rhs.values_){	}
  	~Object(){ }
- 	Object* clone(void){return new Object(class_);};
+ 	Object* clone(void) const{return new Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}
- 	Value operator[](size_t idx){
+ 	Value operator[](size_t idx) const{
+		
  		return GetValue(idx);
  	}
- 	Value GetValue(size_t idx){
+ 	Value GetValue(size_t idx) const{
+		
  		if(idx >= values_.size())return Value();
  		return values_[idx];
  	}
- 	Value GetValue(const std::string& name){
+ 	Value GetValue(const std::string& name) const{
+		
  		size_t index = class_->GetAttributeIndex(name);
  		if(index >= 0)return values_[index];
  		else return Value();
  	}
  	bool SetValue(size_t idx, const Value& val){
+		
  		if(idx >= values_.size())return false;
  		values_[idx] = val;
  		return true;
  	}
  	bool SetValue(std::string name, const Value& val){
+		
  		size_t index = class_->GetAttributeIndex(name);
  		if(index >= 0){
  			values_[index] = val;
@@ -598,14 +769,16 @@ class Object{
  		return false;
  	}
  	// unsafe
- 	void Read(char* ptr){
+ 	void Read(const char* ptr){
+		
  		for(auto& val: values_){
  			val.Read(ptr);
  			ptr += val.length();
  		}
  		return ;
  	}
- 	void Write(char* ptr){
+ 	void Write(char* ptr) const{
+		
  		for(auto& val: values_){
  			val.Write(ptr);
  			ptr += val.length();
@@ -615,6 +788,7 @@ class Object{
  	size_t length(void) const{if(!class_)return 0; return class_->length();}
  private:
  	void InitAttributeValue(void){
+		
  		if(class_)
  		for(auto attr = class_->attributeBegin(); attr < class_->attributeEnd(); attr++){
  			values_.push_back(Value((*attr).type()));
@@ -622,6 +796,7 @@ class Object{
  	}
  	template <class ...Args>
  	void InitAttributeValue(Args... args){
+		
  		assert(sizeof...(args) <= class_->attributeCount());
  		auto attr = class_->attributeBegin();
  		int arr[] = { ( values_.push_back(Value((*attr).type(), args)),attr++,0)... };

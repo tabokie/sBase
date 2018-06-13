@@ -11,7 +11,7 @@
 namespace sbase{
 
 // Define Handle Type & Header // 
-#if defined(__WIN32) || defined(__WIN64)
+#if defined(__WIN32) || defined(__WIN64) || defined(_MSC_VER)
 
 #include <windows.h>
 typedef HANDLE OsFileHandle;

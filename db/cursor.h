@@ -58,6 +58,11 @@ class BFlowCursor{
     root_ = root;
     return ;
   }
+  Status MoveTo(PageHandle hP){
+    if(page_->GetPageType(hP) != kBFlowPage)return Status::InvalidArgument("Not a b flow page handle.");
+    set_.hPage = hP;
+    return Status::OK();
+  }
   // Shift //
   Status ShiftRight(void);
   Status ShiftLeft(void);
@@ -120,6 +125,7 @@ class BPlusCursor{
   void read_page(char* ptr);
   Status Set(TypeT keyType, PageHandle root);
   Status Rewind(void);
+  PageHandle protrude(void){return set_.hDown;}
   // Movement //
   Status Descend(Value* key);
   Status Ascend(void);
@@ -132,12 +138,13 @@ class BPlusCursor{
   Status Delete(Value* key);
   // return new node's head key
   // make new page, narrow the old(override)
-  Status Split(PageHandle new_page, char*& new_key);
+  // Status Split(PageHandle new_page, char*& new_key);
   // Query //
   // get sequence by getting min(continuity in BFlow), if no, shift
   Status GetMatch(Value* key, HandleContainer& ret);
-  Status GetInRange(Value* min, Value* max, tuple<bool,bool>& query, HandleContainer& ret);
-  Status GetFirstLargerThan(Value* min, HandleContainer& ret); // for primary, using continuity of BFlow
+  // Status GetInRange(Value* min, Value* max, tuple<bool,bool>& query, HandleContainer& ret);
+  // min prior
+  // Status GetFirstInRange(Value* min, Value* max, HandleContainer& ret); // for primary, using continuity of BFlow
 
 }; // class BPlusCursor
 

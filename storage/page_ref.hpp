@@ -41,10 +41,13 @@ struct PageRef: public NoCopy{
   char* ptr;
   PageRef(PageManager* manage, PageHandle page, RuntimeAccessMode rmode):
   handle(page),manager(manage),ptr(nullptr){
+    // std::cout << "referencing: " << page << std::endl;
     // LOG_FUNC();
     if(!manager)mode = kFailAccess;
     else{
       manager->Pool(handle);
+      // std::cout << "pooling: " << manager->Pool(handle).ToString() << std::endl;
+
       if(rmode == kReadOnly){
         mode = kReadOnlyByPool;
         // read lock

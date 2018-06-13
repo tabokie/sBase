@@ -152,6 +152,7 @@ class HashMap{
   bool Clear(void){
     for(int i = 0; i < size_; i++)table_[i] = nullptr;
     occupied_ = 0;
+	return true;
   }
 
   size_t occupied(void){return occupied_;}
