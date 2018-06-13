@@ -3,3 +3,16 @@
 *.gch
 *.archived
 *.o
+*.obj
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.pdb
+*.idb
+*.db
+*.ipch
+*.tlog
+*.lastbuildstate
+*.suo
+*.log
