@@ -135,7 +135,7 @@ struct TypeBlob{
 	}
 };
 
-#define GENERATE_FIXCHAR_TYPELEN(i) 	template<> struct TypeLen<FixChar##i >{\
+#define GENERATE_FIXCHAR_TYPELEN_BLOB(i) 	template<> struct TypeLen<FixChar##i >{\
   size_t operator()(const FixChar##i & fixchar) const{\
   	return i;\
   }\
@@ -149,14 +149,14 @@ template<> struct TypeBlob<FixChar##i >{\
 	}\
 }
 
-GENERATE_FIXCHAR_TYPELEN(8);
-GENERATE_FIXCHAR_TYPELEN(16);
-GENERATE_FIXCHAR_TYPELEN(32);
-GENERATE_FIXCHAR_TYPELEN(64);
-GENERATE_FIXCHAR_TYPELEN(128);
-GENERATE_FIXCHAR_TYPELEN(256);
+GENERATE_FIXCHAR_TYPELEN_BLOB(8);
+GENERATE_FIXCHAR_TYPELEN_BLOB(16);
+GENERATE_FIXCHAR_TYPELEN_BLOB(32);
+GENERATE_FIXCHAR_TYPELEN_BLOB(64);
+GENERATE_FIXCHAR_TYPELEN_BLOB(128);
+GENERATE_FIXCHAR_TYPELEN_BLOB(256);
 
-#undef GENERATE_FIXCHAR_TYPELEN
+#undef GENERATE_FIXCHAR_TYPELEN_BLOB
 
 
 
@@ -572,11 +572,10 @@ class ClassDef{
 };
 
 class Object{
-	ClassDef const* const class_;
+	ClassDef const* class_;
 	std::vector<Value> values_;
  public:
  	Object(ClassDef const* cls):class_(cls){
-		
  		InitAttributeValue();
  	}
  	Object(ClassDef const* cls, const std::initializer_list<Value>& pack):class_(cls){
@@ -597,7 +596,14 @@ class Object{
 		
  		InitAttributeValue(args...);
  	} 	
- 	Object(const Object& rhs):class_(rhs.class_),values_(rhs.values_){	}
+ 	Object(const Object& rhs):class_(rhs.class_){
+ 		values_.assign(rhs.values_.begin(), rhs.values_.end());
+ 	}
+ 	const Object& operator=(const Object& rhs){
+ 		class_ = rhs.class_;
+ 		values_.assign(rhs.values_.begin(), rhs.values_.end());
+ 		return (*this);
+ 	}
  	~Object(){ }
  	Object* clone(void) const{return new Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}

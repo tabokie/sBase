@@ -1,8 +1,29 @@
 #include ".\db\cursor.h"
+#include <cstdlib>
 
+#ifndef LOGFUNC
+#define LOGFUNC()       do{std::cout<<__func__<<std::endl;}while(0)
+#endif
 
 namespace sbase{
-
+// Common for modify
+inline void shift_right(char* begin, char* end, size_t stripe){
+  char* cur;
+  for(cur = end-stripe; cur>=begin; cur-=stripe){
+    memcpy(cur+stripe, cur, stripe);
+  }
+  cur += stripe;
+  if(cur-begin>0)memcpy(begin+stripe, begin, cur-begin);
+  return ;
+}
+inline void shift_left(char* begin, char* end, size_t stripe){
+  char* cur;
+  for(cur = begin-stripe;cur+2*stripe<=end; cur+= stripe){
+    memcpy(cur, cur+stripe, stripe);
+  }
+  if(end-cur-stripe>0)memcpy(cur, cur+stripe, end-cur-stripe);
+  return ;
+}
 // Common for cursor query
 // ret_data >= key
 inline char* lower_close_bound(char* data, size_t top, Value* key, size_t stripe){
@@ -36,6 +57,7 @@ inline char* lower_close_bound(char* data, size_t top, Value* key, size_t stripe
 inline char* upper_close_bound(char* data, size_t top, Value* key, size_t stripe){
   Value cur(key->type());
   size_t hi = top, mid=0, lo = 0;
+  if(top<=0)return nullptr;
   cur.Read(data);
   if(cur > *key)return nullptr;
   while(hi-lo >= 2){
@@ -43,7 +65,7 @@ inline char* upper_close_bound(char* data, size_t top, Value* key, size_t stripe
     char* curSlice = data + stripe * mid;
     cur.Read(curSlice);
     if( cur == *key){
-      while(curSlice < data + top*stripe){
+      while((curSlice+stripe) < data + top*stripe){
         curSlice += stripe;
         cur.Read(curSlice);
         if(cur > *key)return curSlice - stripe;
@@ -100,82 +122,14 @@ inline char* upper_open_bound(char* data, size_t top, Value* key, size_t stripe)
 
 
 // BFlowCursor //
-inline void BFlowCursor::read_page(char* data){
-  if(!data)std::cout << "nil pointer" << std::endl;
-  if(!data) return ;
-  BFlowHeader* header = reinterpret_cast<BFlowHeader*>(data);
-  set_.nSize = header->nSize;
-  set_.hPri = header->hPri;
-  set_.hNext = header->hNext;
-  std::cout << "nSize: " << set_.nSize << std::endl;
-  std::cout << "hPri: " << set_.hPri << std::endl;
-  std::cout << "hNext: " << set_.hNext << std::endl;
-  return ;
-}
-// Shift
-Status BFlowCursor::ShiftRight(void){
-  assert(page_->GetPageType(set_.hPage) == kBFlowPage);
-  PageRef ref(page_, set_.hPage, kReadOnly); 
-  read_page(ref.ptr + sizeof(BlockHeader));
-  if(set_.hNext == 0)return Status::Corruption("Invalid handle.");
-  set_.hPage = set_.hNext;
-  return Status::OK();
-}
-Status BFlowCursor::ShiftLeft(void){
-  assert(page_->GetPageType(set_.hPage) == kBFlowPage);
-  PageRef ref(page_, set_.hPage, kReadOnly); 
-  read_page(ref.ptr + sizeof(BlockHeader));
-  if(set_.hPri == 0)return Status::Corruption("Invalid handle.");
-  set_.hPage = set_.hPri;
-  return Status::OK();
-}
-Status BFlowCursor::Rewind(void){
-  if(root_ == 0)return Status::Corruption("Invalid handle.");
-  set_.hPage = root_;
-  return Status::OK();
-}
 // Query
-// Status BFlowCursor::GetMatch(Value* key, SliceContainer& ret){
-//   std::cout << "BFlowCursor: GetMatch" << std::endl;
-//   assert(page_->GetPageType(set_.hPage) == kBFlowPage);
-//   assert(!key || schema_->GetPrimaryAttr().type() == key->type());
-//   PageRef ref(page_, set_.hPage, kReadOnly); 
-//   std::cout << "Pointer is Nil: " << (ref.ptr==nullptr) << std::endl;
-//   read_page(ref.ptr + sizeof(BlockHeader));
-//   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
-//   Slice* slice = schema_->NewObject();
-//   int stripe = schema_->length();
-//   if(key == nullptr){
-//     for(int i = 0; i < set_.nSize; i++){
-//       slice->Read(basePtr + stripe * i);
-//       ret.push_back((*slice));
-//     }
-//     return Status::OK();
-//   }
-//   std::cout << "GetMatch: lower_close_bound" << std::endl;
-//   char* match = lower_close_bound(basePtr, set_.nSize, key, stripe);
-//   std::cout << "Match is Nil: " << (match==nullptr) << std::endl;
-//   std::cout << "Match place: " << (match-basePtr)/stripe << std::endl;
-//   char* endPtr = basePtr + set_.nSize * stripe;
-//   if(match == nullptr)return Status::OK();
-//   Value cur(key->type(), match);
-//   std::cout << std::string(cur) << std::endl;
-//   while(match < endPtr && cur == *key){
-//     slice->Read(match);
-//     ret.push_back((*slice));
-//     match += stripe;
-//     cur.Read(match);
-//   }
-//   return Status::OK();
-// }
 Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceContainer& ret){
-  std::cout << "BFlowCursor: Get" << std::endl;
+  // LOGFUNC();
   assert(page_->GetPageType(set_.hPage) == kBFlowPage);
   assert(!min || schema_->GetPrimaryAttr().type() == min->type());
   assert(!max || schema_->GetPrimaryAttr().type() == max->type());
   PageRef ref(page_, set_.hPage, kReadOnly); 
   read_page(ref.ptr + sizeof(BlockHeader));
-  std::cout << "BFlowCursor: read_page" << std::endl;
   int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
   char* endPtr = basePtr + set_.nSize * stripe;
@@ -193,8 +147,13 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
     char* upper ;
     if(right)upper = upper_close_bound(basePtr, set_.nSize, max,stripe);
     else upper = upper_open_bound(basePtr, set_.nSize, max, stripe);
+    if(!upper){ // no in this page
+      left = true;
+      right = true;
+      return Status::OK(); 
+    }
     char* curSlice = basePtr;
-    if(!upper || upper>=endPtr)upper = endPtr-stripe;
+    if(upper>=endPtr)upper = endPtr-stripe;
     for(curSlice = basePtr; curSlice <= upper; curSlice += stripe ){
       slice->Read(curSlice);
       ret.push_back((*slice));
@@ -208,6 +167,11 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
     char* lower ;
     if(left)lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
     else lower = lower_open_bound(basePtr, set_.nSize, min, stripe);
+    if(!lower){ // no in this page
+      left = false;
+      right = true;
+      return Status::OK();
+    }
     char* curSlice = lower;
     for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
       slice->Read(curSlice);
@@ -218,19 +182,23 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
     left = true;
     return Status::OK();   
   }
-  std::cout << "BFlowCursor: Searching" << std::endl;
   char* lower ;
   if(left)lower = lower_close_bound(basePtr, set_.nSize, min, stripe);
   else lower = lower_open_bound(basePtr, set_.nSize, min, stripe);
-  std::cout << "lower==nil: " << (lower==nullptr) << std::endl;
+  if(!lower){ // all smaller that this
+    left = false;
+    right = true;
+    return Status::OK();
+  }
   if(lower <= basePtr)left = true;
   else left = true;
   char* curSlice = lower;
   Value cur(min->type());
+  // std::cout << "Match: " << std::string(*min) << ",";
+  // std::cout << std::string(*max) << std::endl;
   for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
     cur.Read(curSlice);
-    std::cout << std::string(cur) << std::endl;
-    std::cout << std::string(*max) << std::endl;
+    // std::cout << "check: " << std::string(cur) << std::endl;
     if(right && cur > (*max)){ // allow equal
       right = false;
       return Status::OK();
@@ -240,7 +208,6 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
       return Status::OK();
     }
     slice->Read(curSlice);
-    std::cout << std::string(slice->GetValue(1)) << std::endl;
     ret.push_back((*slice));
   }
   right = true;
@@ -249,73 +216,59 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
 
 // Modify
 Status BFlowCursor::Insert(Slice* record){
-  std::cout << "BFlowCursor Insert" << std::endl;
+  // LOGFUNC();
   assert(page_->GetPageType(set_.hPage) == kBFlowPage);
   PageRef ref(page_, set_.hPage, kLazyModify);
-  std::cout << "Page is Nil: " << (ref.ptr==nullptr) << std::endl;
   read_page(ref.ptr + sizeof(BlockHeader));
   if(!record)return Status::InvalidArgument("Invalid slice.");
-  if(set_.nSize >= (kBlockLen-sizeof(BlockHeader)-sizeof(BFlowHeader)) / record->length()){
-    std::cout << "Out of bounds." << std::endl;
+  if(set_.nSize+1 >= (kBlockLen-sizeof(BlockHeader)-sizeof(BFlowHeader)) / record->length()){
     return Status::IOError("Full page.");
   }
+  int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + sizeof(BFlowHeader);
+  char* endPtr = basePtr + stripe*set_.nSize;
   Value pivot = record->GetValue(0);
   assert(pivot.type() == schema_->GetPrimaryAttr().type());
-  int stripe = schema_->length();
-  std::cout << "BFlowCursor: lower_close_bound" << std::endl;
   char* start = lower_close_bound(basePtr, set_.nSize, &pivot, stripe);
-  if(!start)start = basePtr + set_.nSize*stripe;
+  if(!start)start = endPtr;
   else{
     Value first(pivot.type(), start);
     if(first == pivot)return Status::InvalidArgument("Duplicate key");
-    for(char* top = basePtr+ set_.nSize*stripe; top > start; top -= stripe){
-      memcpy(top, top-stripe, stripe);
-    }
+    shift_right(start, endPtr, stripe);
   }
   BFlowHeader* header = reinterpret_cast<BFlowHeader*>(ref.ptr + sizeof(BlockHeader));
-  header->nSize ++;
   record->Write(start);
-  std::cout << "write record" << std::endl;
+  header->nSize ++;
   return Status::OK();
 }
 Status BFlowCursor::Delete(Value* key){
+  // LOGFUNC();
   PageRef ref(page_, set_.hPage, kLazyModify);
   read_page(ref.ptr + sizeof(BlockHeader));
   int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + sizeof(BFlowHeader);
+  char* endPtr = basePtr + stripe * set_.nSize;
   char* start = lower_close_bound(basePtr, set_.nSize, key, stripe);
   if(!start)return Status::OK();
   Value first(key->type(), start);
   if(!(first == *key))return Status::OK(); // no match
-  if(start+stripe < basePtr +set_.nSize*stripe){
-    first.Read(start + stripe);
-    if(first == *key)return Status::Corruption("Duplicate key");
+  int size = 1;
+  char* end;
+  for(end = start+stripe;end<endPtr;end+= stripe ){
+    first.Read(end);
+    if(! (first== *key))break;
+    size++;
   }
-  for(char* top = start; top < basePtr + set_.nSize*stripe; top += stripe){
-    memcpy(top, top+stripe, stripe);
-  }
+  shift_left(end, endPtr, end-start);
+  BFlowHeader* header = reinterpret_cast<BFlowHeader*>(ref.ptr+sizeof(BlockHeader));
+  header->nSize -= size;
+
   return Status::OK();
 }
-Status BFlowCursor::Merge(void){
-  return Status::Corruption("Function not supported");
-}
-Status BFlowCursor::Clear(void){
-  PageRef ref(page_, set_.hPage, kLazyModify);
-  read_page(ref.ptr + sizeof(BlockHeader));
-  if(set_.nSize > 0)return Status::Corruption("Page not empty.");
-  PageRef nextRef(page_, set_.hNext, kLazyModify);
-  BFlowHeader* nextHeader = reinterpret_cast<BFlowHeader*>(nextRef.ptr+sizeof(BlockHeader));
-  nextHeader->hPri = set_.hPri;
-  PageRef priRef(page_, set_.hPri, kLazyModify);
-  BFlowHeader* priHeader = reinterpret_cast<BFlowHeader*>(priRef.ptr+sizeof(BlockHeader));
-  priHeader->hNext = set_.hNext; 
-  auto status = page_->DeletePage(set_.hPage);
-  return status;
-}
-Status BFlowCursor::Split(Value* vRet, PageHandle& hRet){ // return new splited page and pilot key
+Status BFlowCursor::InsertOnSplit(Slice* slice, PageHandle& hRet){ // return new splited page and pilot key
+  // LOGFUNC();
   // access old page
-  PageRef oldRef(page_, set_.hPage, kReadOnly);
+  PageRef oldRef(page_, set_.hPage, kIncrementalModify);
   read_page(oldRef.ptr + sizeof(BlockHeader));
   // access new page
   PageHandle hNew;
@@ -332,54 +285,73 @@ Status BFlowCursor::Split(Value* vRet, PageHandle& hRet){ // return new splited 
   leftHeader.hNext = hNew;
   rightHeader->hNext = set_.hNext;
   // copy tail to new page
+  int stripe = schema_->length();
   char* leftData = oldRef.ptr+sizeof(BlockHeader) + sizeof(BFlowHeader);
+  char* leftEnd = leftData + leftHeader.nSize * stripe;
   char* rightData = newRef.ptr + sizeof(BlockHeader) +sizeof(BFlowHeader);
-  memcpy(rightData,\
-   leftData + leftHeader.nSize * schema_->length(),\
-   rightHeader->nSize * schema_->length() );
-  vRet = new Value(vRet->type(), rightData);
-  hRet = hNew;
-  // now ready to override old page
-  if(!oldRef.LiftToWrite()){
-    page_->DeletePage(hNew);
-    return Status::Corruption("Error locking old page.");
+  char* rightEnd = rightData + rightHeader->nSize * stripe;
+  memcpy(rightData, leftEnd, rightHeader->nSize * stripe); // copy tail of left to right
+
+  Value key = slice->GetValue(0);
+  Value leftMax(key.type(), leftEnd - stripe );
+  if(leftMax<=key){ // put to right   
+    char* cur = lower_open_bound(rightData, rightHeader->nSize, &key, stripe);
+    if(!cur){ // append to end
+      cur = rightEnd;
+    }
+    else{
+      shift_right(cur, rightEnd, stripe);
+    }
+    slice->Write(cur);
+    rightHeader->nSize ++;
+    slice->Read(rightData); // read pivot  
   }
-  memcpy(oldRef.ptr+sizeof(BlockHeader), reinterpret_cast<char*>(&leftHeader),kBFlowHeaderLen );
+  else{   
+    if(!oldRef.LiftToWrite()){
+      page_->DeletePage(hNew);
+      return Status::Corruption("Error locking old page.");
+    }
+    char* cur = lower_open_bound(leftData, leftHeader.nSize, &key, stripe);
+    if(!cur){
+      cur = leftEnd;
+    }
+    else{
+      shift_right(cur, leftEnd, stripe);
+    }
+    slice->Write(cur);
+    leftHeader.nSize ++;
+    slice->Read(rightData);
+  }
+  memcpy(oldRef.ptr+sizeof(BlockHeader), reinterpret_cast<char*>(&leftHeader),sizeof(BFlowHeader) );
+  hRet = hNew;
   return Status::OK();
 }
-
-
+void BFlowCursor::Plot(void){
+  PageHandle backup = set_.hPage;
+  set_.hPage = root_;
+  std::cout << "============ BFlow ==============" << std::endl;
+  while(true){
+    if(set_.hPage == 0 || page_->GetPageType(set_.hPage) != kBFlowPage)break;
+    PageRef ref(page_, set_.hPage, kReadOnly);
+    BFlowHeader* header = reinterpret_cast<BFlowHeader*>(ref.ptr+sizeof(BlockHeader));
+    std::cout << "(Header)" << header->nSize << "(size),(cur) " << set_.hPage << std::endl;
+    auto slice = schema_->NewObject();
+    char* cur = ref.ptr + sizeof(BlockHeader) + sizeof(BFlowHeader);
+    int stripe = schema_->length();
+    slice->Read(cur);
+    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << " => ";
+    slice->Read(cur + stripe * (header->nSize-1));
+    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << std::endl;
+    set_.hPage = header->hNext;
+  }
+  set_.hPage = backup;
+  return ;
+}
 
 
 // BPlusCursor //
-void BPlusCursor::read_page(char* pPage){
-  if(!pPage)std::cout << "nil pointer" << std::endl;
-  if(!pPage)return ;
-  BPlusHeader* header = reinterpret_cast<BPlusHeader*>(pPage);
-  set_.nSize = header->nSize;
-  set_.hRight = header->hRight;
-  std::cout << "nSize: " << set_.nSize << std::endl;
-  std::cout << "hRight: " << set_.hRight << std::endl;
-  return ;
-}
-Status BPlusCursor::Set(TypeT keyType, PageHandle root){
-  if(schema_)delete schema_;
-  key_len_ =  Type::getLength(keyType);
-  std::vector<Attribute> v{Attribute("Key",keyType),Attribute("Handle",uintT)};
-  schema_ = new Schema("", v.begin(), v.end());
-  root_ = root;
-  set_.hPage = root;
-  return Status::OK();
-}
-Status BPlusCursor::Rewind(void){
-  set_.nStackTop = 0;
-  set_.hTrace[0] = root_;
-  set_.nLevel = 1;
-  return Status::OK();
-}
-
-
 Status BPlusCursor::Descend(Value* key){
+  // LOGFUNC();
   assert(page_->GetPageType(set_.hPage) == kBPlusPage);
   PageRef ref(page_, set_.hPage, kReadOnly);
   read_page(ref.ptr+sizeof(BlockHeader));
@@ -394,12 +366,14 @@ Status BPlusCursor::Descend(Value* key){
       set_.hDown = hDown;
       return Status::InvalidArgument("Already at bottom");
     }
+    set_.hTrace[++set_.nStackTop] = hDown;
     set_.hPage = hDown;
     return Status::OK();
   }
   else{
-    int stripe = key_len_ + sizeof(PageHandle);
+    int stripe = schema_->length();
     char* match = upper_close_bound(basePtr, set_.nSize, key, stripe);
+
     if(!match)return Status::Corruption("No branch to descend");
     auto slice = schema_->NewObject();
     slice->Read(match);
@@ -409,70 +383,179 @@ Status BPlusCursor::Descend(Value* key){
       set_.hDown = hDown;
       return Status::InvalidArgument("Already at bottom");
     }
+    set_.hTrace[++set_.nStackTop] = hDown;
     set_.hPage = hDown;
     return Status::OK();
   }
 }
 Status BPlusCursor::Ascend(void){
-  if(set_.nStackTop <= 0)return Status::InvalidArgument("No more to ascend.");
+  // LOGFUNC();
+  if(set_.nStackTop <= 0)return Status::IOError("No more to ascend.");
   set_.nStackTop--;
-  set_.nLevel--;
   set_.hPage = set_.hTrace[set_.nStackTop];
   return Status::OK();
 }
-Status BPlusCursor::ShiftRight(void){
-  if(set_.hRight == 0)return Status::Corruption("Invalid handle.");
-  set_.hPage = set_.hRight;
-  return Status::OK();
-}
 Status BPlusCursor::Insert(Value* key, PageHandle handle){
+  // LOGFUNC();
   if(!key)return Status::InvalidArgument("Nil key.");
   assert(page_->GetPageType(set_.hPage) == kBPlusPage);
   PageRef ref(page_, set_.hPage, kLazyModify);
   read_page(ref.ptr+sizeof(BlockHeader));
-  int stripe = key_len_ + sizeof(PageHandle);
+  int stripe = schema_->length();
   if(set_.nSize + 1 >= (kBlockLen-sizeof(BPlusHeader)-sizeof(BlockHeader)) / stripe)return Status::IOError("Full page.");
+  BPlusHeader* header = reinterpret_cast<BPlusHeader*>(ref.ptr + sizeof(BlockHeader));
   char* basePtr = ref.ptr + sizeof(BlockHeader) + sizeof(BPlusHeader);
+  char* endPtr = basePtr + set_.nSize * stripe;
   char* lower = lower_open_bound(basePtr, set_.nSize, key, stripe);
-  for(char* cur = basePtr + stripe*set_.nSize; cur > lower; cur-=stripe){
-    memcpy(cur, cur-stripe, stripe);
-  }
   auto slice = schema_->NewObject();
   slice->SetValue(0, *key);
-  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(handle)));
+  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(handle)));  
+  if(!lower){
+    slice->Write(endPtr);
+    header->nSize++;
+    return Status::OK();
+  }
+  shift_right(lower, endPtr, stripe);
   slice->Write(lower);
+  header->nSize++;
   return Status::OK();
 }
-Status BPlusCursor::Delete(Value* key){
+Status BPlusCursor::MakeRoot(Value* key, PageHandle& page){
+  // LOGFUNC();
+  assert(key && key->type() == schema_->GetAttribute(0).type() );
+  auto status = Rewind();
+  if(!status.ok())return status;
+  PageHandle hRoot;
+  status = page_->NewPage(set_.hFile, kBPlusPage, hRoot);
+  // std::cout << "root page: " << hRoot << std::endl;
+  if(hRoot==0||!status.ok())return status;
+
+  PageRef rootRef(page_, hRoot, kLazyModify);
+  BPlusHeader* rootHeader = reinterpret_cast<BPlusHeader*>(rootRef.ptr + sizeof(BlockHeader));
+  rootHeader->nSize = 2;
+  rootHeader->hRight = 0;
+  char* rootBase = rootRef.ptr + sizeof(BlockHeader) + sizeof(BPlusHeader);
+  auto slice = schema_->NewObject();
+  slice->SetValue(0, Value(key->type(), Type::InfinityValue(key->type())));
+  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(root_)));  
+  slice->Write(rootBase);
+  slice->SetValue(0, *key);
+  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));
+  slice->Write(rootBase + schema_->length() );
+  // all done
+  root_ = hRoot;
+  set_.nStackTop = 0;
+  set_.hTrace[0] = root_;
+  page = root_;
   return Status::OK();
 }
 
-Status BPlusCursor::GetMatch(Value* key, HandleContainer& ret){
+Status BPlusCursor::InsertOnSplit(Value* key, PageHandle& page ){
+  // LOGFUNC();
   assert(page_->GetPageType(set_.hPage) == kBPlusPage);
-  PageRef ref(page_, set_.hPage, kLazyModify);
-  read_page(ref.ptr+sizeof(BlockHeader));
-  char* basePtr = ref.ptr + kBPlusHeaderLen + sizeof(BlockHeader); 
-  Slice* slice = schema_->NewObject();
-  if(key)assert(schema_->length() == sizeof(PageHandle) + key->length());
+  // access old page
+  // PageRef oldRef(page_, set_.hPage, kIncrementalModify);
+  PageRef oldRef(page_, set_.hPage, kLazyModify);
+  read_page(oldRef.ptr + sizeof(BlockHeader));
+  // std::cout << "Before: " << std::endl;
+  // auto slice = schema_->NewObject();
+  // char* tcur = oldRef.ptr+sizeof(BlockHeader)+sizeof(BPlusHeader);
+  // for(int i = 0; i < set_.nSize; i++,tcur+=schema_->length()){
+  //   slice->Read(tcur);
+  //   std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << std::endl;
+  // }
+  // access new page
+  PageHandle hNew;
+  auto status = page_->NewPage(set_.hFile, kBPlusPage, hNew);
+  if(!status.ok())return status;
+  PageRef newRef(page_, hNew, kLazyModify);
+  // build new header struct, and prepare header to override
+  BPlusHeader leftHeader;
+  BPlusHeader* rightHeader = reinterpret_cast<BPlusHeader*>(newRef.ptr+sizeof(BlockHeader));
+  leftHeader.nSize = set_.nSize/2+1; // left more
+  rightHeader->nSize = set_.nSize - leftHeader.nSize;
+  leftHeader.hRight = hNew;
+  rightHeader->hRight = set_.hRight;
+  // std::cout << "left: " << leftHeader.nSize << std::endl;
+  // std::cout << "right: " << rightHeader->nSize << std::endl;
+  // Make rec
+  auto slice = schema_->NewObject();
+  slice->SetValue(0, *key);
+  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));  
+  // copy tail to new page
+  char* leftData = oldRef.ptr+sizeof(BlockHeader) + sizeof(BPlusHeader);
+  char* rightData = newRef.ptr + sizeof(BlockHeader) +sizeof(BPlusHeader);
   int stripe = schema_->length();
-  if(!key){
-    for(int i = 0; i < set_.nSize; i++){
-      slice->Read(basePtr + stripe *i);
-      ret.push_back( slice->GetValue(1).get<uint32_t>() );
+
+  Value leftEnd(key->type(), leftData + (leftHeader.nSize-1)*stripe );
+  if(leftEnd<=(*key)){ // put to right
+    memcpy(rightData,\
+     leftData + leftHeader.nSize * stripe,\
+     rightHeader->nSize * stripe );   
+    char* cur = lower_close_bound(rightData, rightHeader->nSize, key, stripe);
+    if(!cur){
+      cur = rightData + rightHeader->nSize * stripe;
+      // std::cout << "lower_close_bound InsertOnSplit Nil(right)" << std::endl;
+      // std::cout << std::string(*key) << std::endl;
+      // cur = rightData;
+      // for(int i = 0; i < rightHeader->nSize; i++, cur+= stripe){
+      //   slice->Read(cur);
+      //   std::cout << std::string(slice->GetValue(0)) << "," << std::string(slice->GetValue(1)) << ".";
+      // }
+      // page_->DeletePage(hNew);
+      // return Status::Corruption("Fail to insert key");
     }
-    return Status::OK();
+    else shift_right(cur, rightData + rightHeader->nSize * stripe, stripe);
+    slice->Write(cur);
+    rightHeader->nSize ++;
+    key->Read(rightData);
   }
-  char* lower = lower_close_bound(basePtr, set_.nSize, key, stripe);
-  char* endPtr = basePtr + set_.nSize * stripe;
-  if(!lower)return Status::OK();
-  Value cur(key->type(), lower);
-  while(lower<endPtr && cur == *key){
-    slice->Read(lower);
-    ret.push_back(slice->GetValue(1).get<uint32_t>() );
-    lower += stripe;
-    cur.Read(lower);
+  else{
+    memcpy(rightData,\
+     leftData + leftHeader.nSize * stripe,\
+     rightHeader->nSize * stripe );    
+    char* cur = lower_close_bound(leftData, leftHeader.nSize, key, stripe);
+    if(!cur){
+      cur = leftData + leftHeader.nSize * stripe;
+      // std::cout << "lower_close_bound is Nil" << std::endl;
+      // std::cout << std::string(*key) << std::endl;
+      // cur = leftData;
+      // for(int i = 0; i < leftHeader.nSize; i++, cur+= stripe){
+      //   slice->Read(cur);
+      //   std::cout << std::string(slice->GetValue(0)) << "," << std::string(slice->GetValue(1)) << ".";
+      // }
+      // page_->DeletePage(hNew);
+      // return Status::Corruption("Fail to insert key");
+    }
+    else shift_right(cur, leftData + leftHeader.nSize * stripe, stripe);
+    slice->Write(cur);
+    leftHeader.nSize ++;
+    key->Read(rightData);
   }
+  memcpy(oldRef.ptr+sizeof(BlockHeader), reinterpret_cast<char*>(&leftHeader),sizeof(BPlusHeader) );
+  // page = slice->GetValue(1).get<uint32_t>(); // ERROR
+  page = hNew;
   return Status::OK();
+}
+void BPlusCursor::Plot(void){
+  PageHandle backup = set_.hPage;
+  set_.hPage = root_;
+  if(set_.hPage==0 || page_->GetPageType(set_.hPage) != kBPlusPage){
+    return ;
+  }
+  std::cout << "============ Index ==============" << std::endl;
+  PageRef ref(page_, set_.hPage, kReadOnly);
+  BPlusHeader* header = reinterpret_cast<BPlusHeader*>(ref.ptr + sizeof(BlockHeader));
+  std::cout << "(Header)" << header->nSize << "(size),(next) " << header->hRight << std::endl;
+  auto slice=  schema_->NewObject();
+  char* cur = ref.ptr + sizeof(BlockHeader) +sizeof(BPlusHeader);
+  int stripe = schema_->length();
+  for(int i = 0;i < header->nSize; i++, cur+=stripe){
+    slice->Read(cur);
+    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << std::endl;
+  }
+  set_.hPage = backup;
+  return ;
 }
 
 

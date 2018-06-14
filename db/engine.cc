@@ -91,6 +91,7 @@ Status Engine::CreateTable(Schema& schema){
 		}
 		fieldSlice.Write(cur);
 	}
+	assert(indexPrimary == 0);
 	// create bflow table
 	status = manager.NewPage(hFile, kBFlowPage, hPage);
 	Slice bflowTableRecord(&kTableIndexManifestSchema, \
@@ -278,6 +279,56 @@ Status Engine::CloseTable(std::string name){
 	return Status::OK();
 }
 
+Status Engine::MakeIndex(std::string table, std::string field){
+	auto pTable = GetTable(table);
+	if(!pTable )return Status::InvalidArgument("Cannot find table.");
+	int idxIndex = pTable->schema.GetAttributeIndex(field);
+	if(idxIndex < 0)return Status::InvalidArgument("Cannot find field.");
+	PageHandle hIndex = pTable->schema.GetIndexHandle(idxIndex);
+	if(hIndex != 0)return Status::InvalidArgument("Already have index on this field.");
+
+	// build bplus index from database root
+	// assert(all file needed is opened)
+	PageHandle indexPage;
+	manager.NewPage(database_.database_root, kBPlusPage, indexPage);
+	if(indexPage == 0)return Status::IOError("Cannot create page for index.");
+	Slice indexRecord(&kTableIndexManifestSchema,\
+		{Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)), \
+		Value(tinyintT, new RealValue<int8_t>(idxIndex)),\
+		Value(uintT, new RealValue<uint32_t>(indexPage))	});
+	// write header
+	PageRef* indexRef = new PageRef(&manager, indexPage, kLazyModify);
+	BPlusHeader* indexHeader = reinterpret_cast<BPlusHeader*>(indexRef->ptr + sizeof(BlockHeader));
+	indexHeader->nSize = 0;
+	indexHeader->hRight = 0;
+	delete indexRef;
+	// Open cursor
+	TypeT indexType = pTable->schema.GetAttribute(idxIndex).type();
+	cursor_.curIndex.Set(indexType, indexPage);
+	// insert all slice to index
+	cursor_.curMain.Set(&pTable->schema, pTable->bflow_root);
+	PrepareSequence(nullptr, nullptr);
+	SlicePtr mainSlice = nullptr;
+	PageHandle mainHandle;
+	while(true){
+		NextSlice(mainSlice, mainHandle);
+		if(mainHandle == 0 || mainSlice == nullptr)break;
+		Value key = mainSlice->GetValue(idxIndex);
+		InsertIndex(idxIndex, &key, mainHandle);
+	}
+	// write to file
+	PageRef tableRootRef(&manager, pTable->table_root, kLazyModify);
+	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr + sizeof(BlockHeader));
+	// not safe
+	char* cur = tableRootRef.ptr + tableHeader->oManifest1 + tableHeader->nManifest1 * kTableIndexManifestSchema.length();
+	if(cur < tableRootRef.ptr + kBlockLen)return Status::Corruption("Not enough space in table manifest.");
+	indexRecord.Write(cur);
+	tableHeader->nManifest1 ++;
+	// alter in memory data
+	cursor_.pTable->schema.SetIndex(idxIndex, indexPage);
+
+	return Status::OK();
+} 
 
 
 } // namespace sbase

@@ -116,7 +116,7 @@ class HashMap{
     int offset = 1;
     // quadratic proding
     do{
-      if(!table_[cur] || table_[cur]->deleted)break;
+      if(!table_[cur])break;
       if( table_[cur]->key == key)break;
       cur = (cur+ 2*offset - 1) % size_;
       offset++;
@@ -135,7 +135,8 @@ class HashMap{
     int offset = 1;
     // quadratic proding
     do{
-      if(!table_[cur] || table_[cur]->deleted)break;
+      if(!table_[cur])break;
+      // if(!table_[cur] || table_[cur]->deleted)break; // ERROR
       if( table_[cur]->key == key)break;
       cur = (cur+ 2*offset - 1) % size_;
       offset++;

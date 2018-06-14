@@ -145,7 +145,7 @@ class PageManager: public NoCopy{
   using FilePtr = typename WritableFile::WritableFilePtr;
   using PagePtr = typename Page::PagePtr;
   using FileWrapperPtr = typename FileWrapper::FileWrapperPtr;
-  HashMap<FileHandle, FileWrapperPtr> file_;
+  HashMap<FileHandle, FileWrapperPtr> file_; // fileHandle can be 0
   MemPool<PageHandle> pool_;
  public:
   PageManager() = default;
@@ -255,6 +255,10 @@ class PageManager: public NoCopy{
     auto pPage = GetPage(hPage);
     if(!pPage)return kUnknownPage;
     if(pPage->type == kUnknownPage)PoolFromDisk(hPage, false); // ERROR
+    // if(GetFileHandle(hPage) == 0){
+    //   std::cout << hPage << ": " << static_cast<int>(pPage->type) << std::endl;
+    //   system("pause");
+    // }
     return pPage->type;
   }
   // Public File Header Mpdifier //

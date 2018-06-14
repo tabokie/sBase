@@ -18,7 +18,7 @@ const size_t kPageNumWid = 3;
 #define GetPageHandle(hFile, nPage)		(static_cast<PageHandle>((hFile)<<(kPageNumWid*8)) + static_cast<PageHandle>(nPage) )
 #define GetPageNum(hPage) 						(static_cast<PageNum>(hPage & 0xffffff))
 #define GetFileHandle(hPage) 					(static_cast<FileHandle>(hPage >> (kPageNumWid*8)))
-const size_t kFileHeaderLength = (10);
+const size_t kFileHeaderLength = (6);
 const size_t kBlockHeaderLength = (2);
 
 enum PageType{
