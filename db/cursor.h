@@ -13,6 +13,7 @@
 #include <iostream>
 #include <cassert>
 #include <cstdint>
+#include <deque>
 
 using namespace std;
 
@@ -100,6 +101,12 @@ class BFlowCursor{
     read_page(ref.ptr+sizeof(BlockHeader));
     return set_.hPri;
   }
+  inline size_t size(void){
+    assert(page_->GetPageType(set_.hPage) == kBFlowPage);
+    PageRef ref(page_, set_.hPage, kReadOnly);
+    read_page(ref.ptr+sizeof(BlockHeader));
+    return set_.nSize;
+  }
   inline PageHandle currentHandle(void){
     return set_.hPage;
   }
@@ -107,7 +114,7 @@ class BFlowCursor{
   Status Get(Value* min, Value* max, bool& left, bool& right, SliceContainer& ret);
   // Modify //
   Status InsertOnSplit(Slice* slice, PageHandle& ret);
-  Status Delete(Value* val);
+  Status Delete(Slice* record);
   Status Insert(Slice* record);
   void Plot(void);
 };
@@ -171,17 +178,20 @@ class BPlusCursor{
     return Status::OK();
   }
   inline PageHandle protrude(void){return set_.hDown;}
+  inline PageHandle currentHandle(void){return set_.hPage;}
   inline Status ShiftRight(void){
     // LOGFUNC();
-    if(set_.hRight == 0)return Status::Corruption("Invalid handle.");
+    if(set_.hRight == 0)return Status::IOError("No more page.");
     set_.hPage = set_.hRight;
     return Status::OK();
   }
+  Status Get(Value* min, Value* max, bool& left, bool& right, std::deque<PageHandle>& ret);
   Status Descend(Value* key);
   Status Ascend(void);
   Status MakeRoot(Value* key, PageHandle& page);
   Status Insert(Value* key, PageHandle handle);
   Status InsertOnSplit(Value* key, PageHandle& page );
+  Status Delete(Value* key);
   void Plot(void);
 
 }; // class BPlusCursor

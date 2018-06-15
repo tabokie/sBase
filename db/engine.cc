@@ -307,21 +307,29 @@ Status Engine::MakeIndex(std::string table, std::string field){
 	cursor_.curIndex.Set(indexType, indexPage);
 	// insert all slice to index
 	cursor_.curMain.Set(&pTable->schema, pTable->bflow_root);
-	PrepareSequence(nullptr, nullptr);
+	PrepareSequencePrimary(nullptr, nullptr);
 	SlicePtr mainSlice = nullptr;
 	PageHandle mainHandle;
+	runtime_.keepReading = true;
 	while(true){
 		NextSlice(mainSlice, mainHandle);
-		if(mainHandle == 0 || mainSlice == nullptr)break;
+		if(mainHandle == 0 || mainSlice == nullptr){
+			NextHandle(mainHandle);
+			NextSlice(mainSlice, mainHandle);
+			if(mainHandle == 0 || mainSlice == nullptr)break;
+		}
 		Value key = mainSlice->GetValue(idxIndex);
 		InsertIndex(idxIndex, &key, mainHandle);
 	}
+	cursor_.curIndex.Rewind();
+	indexPage = cursor_.curIndex.currentHandle(); // ERROR
+	indexRecord.SetValue(2, Value(uintT, new RealValue<uint32_t>(indexPage)) );
 	// write to file
 	PageRef tableRootRef(&manager, pTable->table_root, kLazyModify);
 	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr + sizeof(BlockHeader));
 	// not safe
 	char* cur = tableRootRef.ptr + tableHeader->oManifest1 + tableHeader->nManifest1 * kTableIndexManifestSchema.length();
-	if(cur < tableRootRef.ptr + kBlockLen)return Status::Corruption("Not enough space in table manifest.");
+	if(cur >= tableRootRef.ptr + kBlockLen)return Status::Corruption("Not enough space in table manifest.");
 	indexRecord.Write(cur);
 	tableHeader->nManifest1 ++;
 	// alter in memory data
@@ -329,6 +337,5 @@ Status Engine::MakeIndex(std::string table, std::string field){
 
 	return Status::OK();
 } 
-
 
 } // namespace sbase
