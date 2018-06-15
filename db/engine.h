@@ -215,7 +215,6 @@ class Engine: public NoCopy{
  	}
  	Status TransactionEnd(void){return Status::OK();}
  	Status MakeIndex(std::string table, std::string field);
- 	Status DeleteSlice(Slice* slice);
  private:
   inline TableMetaDataPtr GetTable(std::string name){
  		if(!database_.loaded)return nullptr;
@@ -395,7 +394,10 @@ class Engine: public NoCopy{
  			if(hIndex == 0) continue; // no index on it
  			cursor_.curIndex.Set( cursor_.pTable->schema[idxIndex].type(), hIndex );
  			Value* key = new Value(slice->GetValue(i));
- 			auto status = cursor_.curIndex.Delete(key);
+ 			PageHandle tmp;
+ 			auto status = DescendToLeaf(key, tmp);
+ 			if(!status.ok())return status;
+ 			status = cursor_.curIndex.Delete(key);
  			// while(status.IsIOError()){
  			// 	if(cursor_.curIndex.ShiftRight().IsIOError())break;
  			// 	status = cursor_.curIndex.Delete(key);

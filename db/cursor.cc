@@ -623,7 +623,7 @@ Status BPlusCursor::Get(Value* min, Value* max, bool& left, bool& right, std::de
   right = true;
   return Status::OK();
 }
-Status Delete(Value* key){
+Status BPlusCursor::Delete(Value* key){
   assert(schema_->GetAttribute(0).type() == key->type());
   PageRef ref(page_, set_.hPage, kLazyModify);
   read_page(ref.ptr + sizeof(BlockHeader));
@@ -639,7 +639,7 @@ Status Delete(Value* key){
   for(end = start+stripe; end<endPtr;end+=stripe){
     first.Read(end);
     if(!(first == *key))break;
-    size++
+    size++;
   }
   shift_left(end, endPtr, end-start);
   BPlusHeader* header = reinterpret_cast<BPlusHeader*>(ref.ptr + sizeof(BlockHeader));
