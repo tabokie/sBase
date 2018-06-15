@@ -22,9 +22,10 @@ int main(void){
 			sentence += buffer;
 			scanner.Scan(sentence,v);
 			for(auto token: v){
-				cout << kSymbolDict(token.id) << endl;
+				cout << kSymbolDict(token.id) << ", ";
 				parser.NextPredict(token);
 			}
+			cout << endl;
 			cout << parser;
 			parser.Clear();
 			v.clear();

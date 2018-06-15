@@ -13,18 +13,19 @@
 
 namespace sbase{
 
-const size_t kWordSize = 19;
+const size_t kWordSize = 19+3;
 static const AutoDict<std::string> kWordDict(
   "NUMBER","STRING",
   "SEMICOLON","COMMA","LBRACKET","RBRACKET","DOT",
   "SELECT","FROM", "WHERE", 
+  "INSERT","INTO","VALUES",
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP",
   "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", 
   "NAME"
   );
 static const char* kWordLex[kWordSize] = {
   "^[\r\t\n ]",  // none
-  "^[0-9]+",
+  "^([0-9]+|[0-9]+[.][0-9]*)",
   "^\'[^\']+\'",
   "^;",
   "^,",
@@ -34,9 +35,12 @@ static const char* kWordLex[kWordSize] = {
   "^(select|SELECT)",
   "^(from|FROM)",
   "^(where|WHERE)",
+  "^(insert|INSERT)",
+  "^(into|INTO)",
+  "^(values|VALUES)",
   "^(not|NOT)",
   "^(and|AND|or|OR)",
-  "^(<|<=|>|>=|=|like|LIKE|in|IN)",
+  "^(<|<=|>|>=|=|!=|like|LIKE|in|IN)",
   "^[+-]",
   "^[*]",
   "^[/]",
