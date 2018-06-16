@@ -13,15 +13,18 @@
 
 namespace sbase{
 
-const size_t kWordSize = 19+3;
+const size_t kWordSize = 19+3+7+1+3;
 static const AutoDict<std::string> kWordDict(
   "NUMBER","STRING",
   "SEMICOLON","COMMA","LBRACKET","RBRACKET","DOT",
   "SELECT","FROM", "WHERE", 
   "INSERT","INTO","VALUES",
+  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE",
+  "DELETE", // ERROR
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP",
   "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", 
-  "NAME"
+  "NAME",
+  "DROP","INDEX","ON"
   );
 static const char* kWordLex[kWordSize] = {
   "^[\r\t\n ]",  // none
@@ -38,6 +41,14 @@ static const char* kWordLex[kWordSize] = {
   "^(insert|INSERT)",
   "^(into|INTO)",
   "^(values|VALUES)",
+  "^(CREATE|create)",
+  "^(TABLE|table)",
+  "^(PRIMARY|primary)",
+  "^(KEY|key)",
+  "^(CHAR|char)",
+  "^(INT|int)",
+  "^(UNIQUE|unique)",
+  "^(DELETE|delete)",
   "^(not|NOT)",
   "^(and|AND|or|OR)",
   "^(<|<=|>|>=|=|!=|like|LIKE|in|IN)",
@@ -45,7 +56,10 @@ static const char* kWordLex[kWordSize] = {
   "^[*]",
   "^[/]",
   "^(sqrt)",
-  "^[a-zA-Z_][a-zA-Z0-9_]*"
+  "^[a-zA-Z_][a-zA-Z0-9_]*",
+  "^(DROP|drop)",
+  "^(INDEX|index)",
+  "^(ON|on)"
 };
 
 struct Token{

@@ -41,6 +41,7 @@ class Schema: public ClassDef{
  	// std::vector<bool> null; // true for allow null
  	// std::vector<std::string> defaultV; // store as string
  	std::vector<PageHandle> index;
+ 	std::vector<std::string> index_name;
  public:
  	// for all input, first is primary
  	// for vector input, assume that input_index == real_index
@@ -68,6 +69,19 @@ class Schema: public ClassDef{
 		}
 		else if(index.size() < attributeCount())return false;
 		index[idx] = hPage;
+		return true;
+	}	
+	bool SetIndex(size_t idx, PageHandle hPage, std::string name){
+		if(index.size() == 0){
+			index.resize(attributeCount());
+		}
+		else if(index.size() < attributeCount())return false;
+		if(index_name.size() == 0){
+			index_name.resize(attributeCount());
+		}
+		else if(index_name.size() < attributeCount())return false;
+		index[idx] = hPage;
+		index_name[idx] = name;
 		return true;
 	}	
 	// Get Attribute //

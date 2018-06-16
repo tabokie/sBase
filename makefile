@@ -1,6 +1,7 @@
 GLOBAL = e:^\code^\Github^\sBase^\
 COMPILER = $(GLOBAL)compiler^\
-COMPILER_HEADER= $(COMPILER)parser.hpp $(COMPILER)scanner.hpp $(COMPILER)compiler.hpp
+COMPILER_SRC = $(COMPILER)compiler.cc
+COMPILER_HEADER= $(COMPILER)parser.hpp $(COMPILER)scanner.hpp $(COMPILER)compiler.h
 DB = $(GLOBAL)db^\
 DB_SRC = $(DB)cursor.cc $(DB)engine.cc
 DB_HEADER = $(DB)cursor.h $(DB)engine.h $(DB)slice.hpp
@@ -14,8 +15,8 @@ REFLECTION = $(UTIL)reflection.cc
 COMMON_OPTION = -I$(GLOBAL) -std=c++11
 TEST_OPTION = -I$(GLOBAL) -lgtest -std=c++11
 
-compiler_test: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(REFLECTION)
-	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(REFLECTION) -o compiler_test
+compiler_test: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(COMPILER_SRC) $(REFLECTION)
+	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(COMPILER_SRC) $(REFLECTION) -o compiler_test
 
 
 

@@ -3,9 +3,6 @@
 #include <iostream>
 
 namespace sbase{
-#define log(v) 				do{std::cout <<__func__ << ": " << #v << std::endl;}while(0)
-#define logivar(v) 		do{std::cout << __func__ << ": " << #v << " = " << static_cast<int>(v) << std::endl;}while(0)
-#define logvar(v) 		do{std::cout << __func__ << ": " << #v << " = " << (v) << std::endl;}while(0)
 Status Engine::CreateDatabase(std::string path){
 	auto status = manager.NewFile(path, kBlockSize, database_.database_root);
 	if(!status.ok())return status;
@@ -68,10 +65,6 @@ Status Engine::CreateTable(Schema& schema){
 	tableHeader->oManifest1 = kBlockLen >> 1;
 	tableHeader->nManifest0 = schema.attributeCount(); // schema part
 	tableHeader->nManifest1 = 2; // bflow and bplus
-	// logivar(tableHeader->oManifest0);
-	// logivar(tableHeader->oManifest1);
-	// logivar(tableHeader->nManifest0);
-	// logivar(tableHeader->nManifest1);
 
 	pTableMeta->schema = schema;
 	char* cur = tableRootRef.ptr + tableHeader->oManifest0;
@@ -84,7 +77,6 @@ Status Engine::CreateTable(Schema& schema){
 			{Value(tinyintT, new RealValue<int8_t>(i)),\
 			Value(fixchar32T, attr.name()),\
 			Value(tinyintT, new RealValue<int8_t>(attr.type())),\
-			Value(tinyintT, new RealValue<int8_t>(schema.isPrimary(i))),\
 			Value(tinyintT, new RealValue<int8_t>(schema.isUnique(i)))}  );
 		if(schema.isPrimary(i)){
 			indexPrimary = i; // assert only one primary
@@ -97,6 +89,7 @@ Status Engine::CreateTable(Schema& schema){
 	Slice bflowTableRecord(&kTableIndexManifestSchema, \
 		{Value(tinyintT, new RealValue<int8_t>(kBFlowIndex)),\
 		Value(tinyintT, new RealValue<int8_t>(indexPrimary)),\
+		Value(fixchar32T, new RealValue<FixChar32>(schema.name)),\
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
 	PageHandle hBFlow = hPage;
 	pTableMeta->bflow_root = hPage;
@@ -110,6 +103,7 @@ Status Engine::CreateTable(Schema& schema){
 	Slice bplusTableRecord(&kTableIndexManifestSchema, \
 		{Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)),\
 		Value(tinyintT, new RealValue<int8_t>(indexPrimary)),\
+		Value(fixchar32T, new RealValue<FixChar32>(schema.GetAttribute(0).name())),\
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
 	pTableMeta->schema.SetIndex(indexPrimary, hPage);
 	PageRef bplusRootRef(&manager, hPage, kLazyModify);
@@ -192,10 +186,6 @@ Status Engine::LoadTable(std::string name){
 	}
 	PageRef rootRef(&manager, pMeta->table_root, kReadOnly);
 	ManifestBlockHeader* tableRootHeader = reinterpret_cast<ManifestBlockHeader*>(rootRef.ptr);
-	// logivar(tableRootHeader->oManifest0);
-	// logivar(tableRootHeader->oManifest1);
-	// logivar(tableRootHeader->nManifest0);
-	// logivar(tableRootHeader->nManifest1);
 	if(tableRootHeader->hBlockCode != kTableRoot)return Status::Corruption("Table root page corrupted.");
 	// read schema map
 	char* cur = rootRef.ptr + tableRootHeader->oManifest0;
@@ -206,18 +196,15 @@ Status Engine::LoadTable(std::string name){
 		pMeta->schema.AppendField(\
 			Attribute( static_cast<std::string>((*fieldSlice)[1].get<FixChar32>()),\
 				static_cast<TypeT>((*fieldSlice)[2].get<int8_t>()) ), \
-			static_cast<bool>((*fieldSlice)[0].get<int8_t>()),\
-			static_cast<bool>((*fieldSlice)[4].get<int8_t>()) );
-		// only first is primary
-		assert( (static_cast<bool>((*fieldSlice)[3].get<int8_t>())==false) ^ (i ==0) );
-		// logvar(static_cast<std::string>((*fieldSlice)[0].get<FixChar>()));
+			static_cast<int8_t>((*fieldSlice)[0].get<int8_t>()),\
+			static_cast<bool>((*fieldSlice)[3].get<int8_t>()) );
 	}
 	// read index map
 	Slice* indexSlice = kTableIndexManifestSchema.NewObject();
 	cur = rootRef.ptr + tableRootHeader->oManifest1;
 	for(int i = 0; i < tableRootHeader->nManifest1; i++ , cur += indexSlice->length()){
 		indexSlice->Read(cur);
-		pMeta->schema.SetIndex( static_cast<size_t>((*indexSlice)[1].get<int8_t>()) , (*indexSlice)[2].get<uint32_t>());
+		pMeta->schema.SetIndex( static_cast<size_t>((*indexSlice)[1].get<int8_t>()) , (*indexSlice)[3].get<uint32_t>(), std::string(*indexSlice[2].get<FixChar32>()));
 	}
 	return Status::OK();
 }
@@ -250,6 +237,7 @@ Status Engine::DropTable(std::string name){
 	database_.table_manifest.Delete(name);
 	return Status::OK();
 }
+Status Engine::DropIndex(void);
 Status Engine::CloseDatabase(void){
 	Status status;
 	std::string table;
@@ -279,7 +267,7 @@ Status Engine::CloseTable(std::string name){
 	return Status::OK();
 }
 
-Status Engine::MakeIndex(std::string table, std::string field){
+Status Engine::MakeIndex(std::string table, std::string field, std::string name){
 	auto pTable = GetTable(table);
 	if(!pTable )return Status::InvalidArgument("Cannot find table.");
 	int idxIndex = pTable->schema.GetAttributeIndex(field);
@@ -295,6 +283,7 @@ Status Engine::MakeIndex(std::string table, std::string field){
 	Slice indexRecord(&kTableIndexManifestSchema,\
 		{Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)), \
 		Value(tinyintT, new RealValue<int8_t>(idxIndex)),\
+		Value(fixchar32T, new RealValue<FixChar32>(name)),\
 		Value(uintT, new RealValue<uint32_t>(indexPage))	});
 	// write header
 	PageRef* indexRef = new PageRef(&manager, indexPage, kLazyModify);
@@ -323,7 +312,7 @@ Status Engine::MakeIndex(std::string table, std::string field){
 	}
 	cursor_.curIndex.Rewind();
 	indexPage = cursor_.curIndex.currentHandle(); // ERROR
-	indexRecord.SetValue(2, Value(uintT, new RealValue<uint32_t>(indexPage)) );
+	indexRecord.SetValue(3, Value(uintT, new RealValue<uint32_t>(indexPage)) );
 	// write to file
 	PageRef tableRootRef(&manager, pTable->table_root, kLazyModify);
 	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr + sizeof(BlockHeader));
@@ -333,7 +322,7 @@ Status Engine::MakeIndex(std::string table, std::string field){
 	indexRecord.Write(cur);
 	tableHeader->nManifest1 ++;
 	// alter in memory data
-	cursor_.pTable->schema.SetIndex(idxIndex, indexPage);
+	cursor_.pTable->schema.SetIndex(idxIndex, indexPage, name);
 
 	return Status::OK();
 } 

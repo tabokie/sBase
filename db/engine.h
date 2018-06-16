@@ -10,15 +10,12 @@
 #include ".\storage\page_ref.hpp"
 #include ".\util\utility.hpp"
 #include ".\db\cursor.h"
+#include ".\util\error.hpp"
 
 #include <memory> // shared_ptr
 #include <vector>
 #include <string>
 #include <deque> 
-
-#ifndef LOGFUNC
-#define LOGFUNC()					do{std::cout << __func__ << std::endl;}while(0)
-#endif // LOGFUNC
 
 namespace sbase{
 
@@ -42,7 +39,6 @@ const ::std::vector<Attribute> kTableSchemaManifestSchemaAttr{\
 	Attribute("Index", tinyintT),\
 	Attribute("FieldName", fixchar32T ),\
 	Attribute("FieldType", tinyintT),\
-	Attribute("Primary", tinyintT),\
 	Attribute("Unique", tinyintT) };
 const Schema kTableSchemaManifestSchema("table_schema",\
  kTableSchemaManifestSchemaAttr.begin(), kTableSchemaManifestSchemaAttr.end());
@@ -50,6 +46,7 @@ const Schema kTableSchemaManifestSchema("table_schema",\
 const ::std::vector<Attribute> kTableIndexManifestSchemaAttr{\
 	Attribute("IndexType", tinyintT),\
 	Attribute("IndexField", tinyintT),\
+	Attribute("IndexName",fixchar32T),\
 	Attribute("RootPage", uintT)	};
 const Schema kTableIndexManifestSchema("table_index",\
  kTableIndexManifestSchemaAttr.begin(), kTableIndexManifestSchemaAttr.end());
@@ -104,7 +101,24 @@ class Engine: public NoCopy{
  public:
  	Engine():cursor_(&manager){ }
  	~Engine(){ }
- 	// Meta Info feedback //
+ 	// Meta Feedback //
+ 	// -1 for error, 0 for non, 1 for primary, 2 for non-p
+ 	int QueryIndex(std::string table, std::string field){
+ 		auto pTable = GetTable(table);
+ 		if(!pTable)return -1;
+ 		int idx = pTable->schema.GetAttributeIndex(field);
+ 		if(idx < 0)return -1;
+ 		PageHandle hIndex = pTable->schema.GetIndexHandle(idx);
+ 		if(hIndex == 0)return 0;
+ 		if(idx == 0)return 1;
+ 		else return 2; 
+ 	}
+ 	Schema* GetSchema(std::string table, std::string field){
+ 		auto pTable = GetTable(table);
+ 		if(!pTable)return nullptr;
+ 		return &(pTable->schema);
+ 	}
+ 	// Meta Modify //
  	// Creating strategy:
  	// database + index => File 0 named root
  	// table root + bflow => File x named TableName
@@ -116,6 +130,7 @@ class Engine: public NoCopy{
  	Status DropTable(std::string name);
  	Status CloseDatabase(void);
  	Status CloseTable(std::string name);
+ 	Status MakeIndex(std::string table, std::string field, std::string name);
  	// Cursor //
  	// Phrase 1: Open Database and Table //
  	Status Transaction(void){
@@ -129,7 +144,6 @@ class Engine: public NoCopy{
  		return Status::OK();
  	}
  	Status OpenCursor(std::string table, std::string field){
- 		// LOGFUNC();
  		auto pTable = GetTable(table);
  		if(!pTable)return Status::InvalidArgument("Cannot find field.");
  		int idx = pTable->schema.GetAttributeIndex(field);
@@ -141,7 +155,6 @@ class Engine: public NoCopy{
  		return Status::OK();
  	}
  	Status OpenCursor(std::string table){ // table
- 		// LOGFUNC();
  		auto pTable = GetTable(table);
  		cursor_.pTable = pTable; // ERROR
  		if(!pTable)return Status::InvalidArgument("Cannot find field.");
@@ -150,9 +163,8 @@ class Engine: public NoCopy{
  	}
  	// Phrase 2: Prepare Data Handle //
  	// if primary index, return one handle
- 	// else read by pack
+ 	// else read all possible handle
  	Status PrepareMatch(Value* key){
- 		// LOGFUNC();
  		if(cursor_.idxIndex == 0){
  			runtime_.keepReading = true;
  			return PrepareMatchPrimary(key);
@@ -166,12 +178,13 @@ class Engine: public NoCopy{
  		}
  		return PrepareSequenceNonPrimary(min, max, leftEqual, rightEqual);
  	}
+ 	// Query or Modify based on current handle
  	Status NextSlice(SlicePtr& ret){
  		PageHandle tmp;
  		auto status = NextSlice(ret, tmp);
  		if(!status.ok())return status;
  		if(ret)return Status::OK();
- 		// ret = nullptr
+ 		// ret is nullptr
  		status = NextHandle(tmp);
  		if(!status.ok())return status;
  		if(tmp > 0){
@@ -184,10 +197,8 @@ class Engine: public NoCopy{
  		cursor_.curMain.Plot();
  		return ;
  	}
- 	Status DeleteSlice(void){return Status::OK();}
  	Status InsertSlice(Slice* slice){
- 		// LOGFUNC();
- 		if(runtime_.handles.size() == 0)return Status::Corruption("");
+ 		if(runtime_.handles.size() == 0)return Status::Corruption("No handle left for insert.");
  		cursor_.curMain.MoveTo(runtime_.handles.front());
  		Status status = cursor_.curMain.Insert(slice);
  		if(status.IsIOError()){ // bflow is full
@@ -202,8 +213,9 @@ class Engine: public NoCopy{
  		else if(!status.ok())return status;
  		return Status::OK();
  	}
+ 	// ERROR not resolved: delete on splited page
  	Status DeleteSlice(Slice* slice){
- 		if(runtime_.handles.size() == 0)return Status::Corruption("No handle left.");
+ 		if(runtime_.handles.size() == 0)return Status::Corruption("No handle left for delete.");
  		cursor_.curMain.MoveTo(runtime_.handles.front());
  		Status status = cursor_.curMain.Delete(slice);
  		// while(status.IsIOError()){
@@ -213,8 +225,6 @@ class Engine: public NoCopy{
  		if(!status.ok())return status;
  		return DeleteFromAllIndex(slice);
  	}
- 	Status TransactionEnd(void){return Status::OK();}
- 	Status MakeIndex(std::string table, std::string field);
  private:
   inline TableMetaDataPtr GetTable(std::string name){
  		if(!database_.loaded)return nullptr;
@@ -236,7 +246,7 @@ class Engine: public NoCopy{
  		runtime_.handles.push_back(0);
  		status = DescendToLeaf(key, runtime_.handles.front());
  		if(!status.ok())return status;
- 		ReadCurrent();
+ 		return ReadCurrent();
  	}
  	Status PrepareSequencePrimary(Value* min, Value* max, bool leftEqual = true, bool rightEqual = true){
  		runtime_.handles.clear();
@@ -333,9 +343,7 @@ class Engine: public NoCopy{
  		hRet = runtime_.handles.front();
  		return Status::OK();
  	}
- 	// for primary-bplus, not leaf
  	Status DescendToLeaf(Value* val, PageHandle& ret){
- 		// LOGFUNC();
  		Status status;
  		while(true){
  			status = cursor_.curIndex.Descend(val);
@@ -366,7 +374,6 @@ class Engine: public NoCopy{
 		return Status::OK();
  	}
  	Status UpdateAllIndex(Slice* slice, PageHandle hPage){
- 		// LOGFUNC();
  		Status status;
  		if(slice == nullptr || cursor_.pTable == nullptr)return Status::Corruption("Invalid slice or ptable.");
  		int idxIndex = cursor_.idxIndex;
@@ -385,7 +392,6 @@ class Engine: public NoCopy{
  		return Status::OK();
  	}
  	Status DeleteFromAllIndex(Slice* slice){
- 		// LOGFUNC();
  		Status status;
  		if(slice == nullptr || cursor_.pTable == nullptr)return Status::Corruption("Invalid slice or ptable.");
  		int idxIndex = cursor_.idxIndex;
@@ -412,7 +418,6 @@ class Engine: public NoCopy{
  		return Status::OK();
  	}
  	Status SetIndexRoot(int idx, PageHandle hRoot){
- 		// LOGFUNC();
  		if(manager.GetPageType(hRoot) != kBPlusPage)return Status::Corruption("New root not BPlus");
  		if(!cursor_.pTable)return Status::Corruption("Nil pTable");
  		// first alter in memory schema
@@ -441,7 +446,7 @@ class Engine: public NoCopy{
  	}
 
 
-};
+}; // class Engine
 
 } // namespace sbase
 

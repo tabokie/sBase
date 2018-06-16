@@ -53,6 +53,7 @@ class AutoDict{
     }
     return -1;
   }
+  size_t size(void) const {return size_;}
 };
 
 template <typename _KT, typename _DT>

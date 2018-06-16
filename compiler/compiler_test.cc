@@ -1,4 +1,4 @@
-#include ".\compiler\compiler.hpp"
+#include ".\compiler\compiler.h"
 
 #include <iostream>
 

@@ -38,8 +38,10 @@ class BFlowCursor{
   } set_;
  private:
   inline void read_page(char* data){
-    if(!data)std::cout << "nil pointer" << std::endl;
-    if(!data) return ;
+    if(!data){
+      ErrorLog::Fatal("Nil pointer when reading BFlow page.");
+      return;
+    }
     BFlowHeader* header = reinterpret_cast<BFlowHeader*>(data);
     set_.nSize = header->nSize;
     set_.hPri = header->hPri;
@@ -51,6 +53,7 @@ class BFlowCursor{
   }
  public:
   BFlowCursor(PageManager* m):page_(m),schema_(nullptr),root_(0){ }
+  ~BFlowCursor(){ }
   using SliceContainer = sbase::SliceContainer;
   inline void Set(Schema* schema, PageHandle root){
     schema_ = schema;
@@ -110,9 +113,7 @@ class BFlowCursor{
   inline PageHandle currentHandle(void){
     return set_.hPage;
   }
-  // Query //
   Status Get(Value* min, Value* max, bool& left, bool& right, SliceContainer& ret);
-  // Modify //
   Status InsertOnSplit(Slice* slice, PageHandle& ret);
   Status Delete(Slice* record);
   Status Insert(Slice* record);
@@ -144,7 +145,6 @@ class BPlusCursor{
   PageHandle root_;  
 
   inline void read_page(char* pPage){
-    // LOGFUNC();
     if(!pPage)return ;
     BPlusHeader* header = reinterpret_cast<BPlusHeader*>(pPage);
     set_.nSize = header->nSize;
@@ -154,12 +154,11 @@ class BPlusCursor{
     return ;
   }
  public:
-  using HandleContainer = std::vector<PageHandle>;
+  using HandleContainer = std::deque<PageHandle>;
   BPlusCursor(PageManager* m):page_(m),schema_(nullptr){ }
   ~BPlusCursor(){ if(schema_)delete schema_; }
 
   inline Status Set(TypeT keyType, PageHandle root){
-    // LOGFUNC();
     if(schema_)delete schema_;
     key_len_ =  Type::getLength(keyType);
     std::vector<Attribute> v{Attribute("Key",keyType),Attribute("Handle",uintT)};
@@ -171,7 +170,6 @@ class BPlusCursor{
     return Status::OK();
   }
   inline Status Rewind(void){
-    // LOGFUNC();
     set_.nStackTop = 0;
     set_.hTrace[0] = root_;
     set_.hPage = root_; // ERROR
@@ -180,12 +178,11 @@ class BPlusCursor{
   inline PageHandle protrude(void){return set_.hDown;}
   inline PageHandle currentHandle(void){return set_.hPage;}
   inline Status ShiftRight(void){
-    // LOGFUNC();
     if(set_.hRight == 0)return Status::IOError("No more page.");
     set_.hPage = set_.hRight;
     return Status::OK();
   }
-  Status Get(Value* min, Value* max, bool& left, bool& right, std::deque<PageHandle>& ret);
+  Status Get(Value* min, Value* max, bool& left, bool& right, HandleContainer& ret);
   Status Descend(Value* key);
   Status Ascend(void);
   Status MakeRoot(Value* key, PageHandle& page);

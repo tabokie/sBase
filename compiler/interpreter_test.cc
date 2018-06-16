@@ -23,7 +23,11 @@ int main(void){
 			scanner.Scan(sentence,v);
 			for(auto token: v){
 				cout << kSymbolDict(token.id) << ", ";
-				parser.NextPredict(token);
+				auto status = parser.NextPredict(token);
+				if(!status.ok()){
+					cout << status.ToString() << endl;
+					break;
+				}
 			}
 			cout << endl;
 			cout << parser;

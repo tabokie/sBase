@@ -22,25 +22,28 @@
 
 namespace sbase{
 
-const int kNoneCode = 43;
-
-static const AutoDict<std::string> kSymbolDict(
+const AutoDict<std::string> kSymbolDict(
   // word at first
   "NUMBER","STRING", // 1,2
   "SEMICOLON","COMMA","LBRACKET","RBRACKET","DOT", // 3,4,5,6,7
   "SELECT","FROM", "WHERE", // 8,9,10
   "INSERT","INTO","VALUES", // 11-13
-  "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP", // 14-16
-  "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", // 17-20
-  "NAME", // 21
+  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE", // 14-20
+  "DELETE",
+  "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP", // 
+  "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", // 
+  "NAME", // 30
+  "DROP","INDEX","ON",
   // non-terminals
-  "select_clause", "column_list", "table_list", "where_clause", // 22-25
-  "insert_clause", "package_list","package_list_tail","package","value_list","value_list_tail", // 26-31
-  "column", "column_list_tail", "table_list_tail", "condition_clause", // 32-35
-  "single_condition", "condition_tail", "value_expr", "term", "term_tail", // 36-40
-  "factor", "factor_tail", // 41-42
-  "NONE", // 43
-  "sql" // 44
+  "select_clause", "column_list", "table_list", "where_clause", // 28-31
+  "insert_clause", "package_list","package_list_tail","package","value_list","value_list_tail", // 32-37
+  "create_clause", "field_list","field_list_tail","type", // 38-41
+  "delete_clause","drop_clause","create_index_clause",
+  "column", "column_list_tail", "table_list_tail", "condition_clause", // 
+  "single_condition", "condition_tail", "value_expr", "term", "term_tail", // 
+  "factor", "factor_tail", // 
+  "NONE", // 
+  "sql" // 
   );
 
 // initializer: having init(Args... args)
@@ -56,11 +59,17 @@ _initializer InitByDict(_dict dict, Args... args){
 
 // auto init_func_ = InitByDict<Stack<int>, AutoDict<string>,class ...Args>;
 // kRuleDict: Get all rules / Get indexed rule
-LayeredDict<int, Stack<int>> kRuleDict(
+static LayeredDict<int, Stack<int>> kRuleDict(
   _from_("sql"),_to_("select_clause","SEMICOLON"),
   _from_("sql"),_to_("insert_clause","SEMICOLON"),
+  _from_("sql"),_to_("create_clause","SEMICOLON"),
+  _from_("sql"),_to_("delete_clause","SEMICOLON"),
   _from_("select_clause"),_to_("SELECT", "column_list","FROM","table_list","where_clause"),
   _from_("insert_clause"),_to_("INSERT","INTO","table_list","package_list"),
+  _from_("delete_clause"),_to_("DELETE","FROM","table_list","where_clause"),
+  _from_("drop_clause"),_to_("DROP","INDEX","NAME"),
+  _from_("drop_clause"),_to_("DROP","TABLE","NAME"),
+  _from_("create_index_clause"),_to_("CREATE","INDEX","NAME","ON","NAME","LBRACKET","NAME","RBRACKET"),
   _from_("package_list"),_to_("package","package_list_tail"),
   _from_("package_list_tail"),_to_("COMMA", "package","package_list_tail"),
   _from_("package_list_tail"),_to_("NONE"),
@@ -68,6 +77,15 @@ LayeredDict<int, Stack<int>> kRuleDict(
   _from_("value_list"),_to_("value_expr","value_list_tail"),
   _from_("value_list_tail"),_to_("COMMA","value_expr","value_list_tail"),
   _from_("value_list_tail"),_to_("NONE"),
+  _from_("create_clause"),_to_("CREATE","TABLE","NAME","LBRACKET","field_list","RBRACKET","NONE"),
+  _from_("field_list"),_to_("NAME","type","field_list_tail"),
+  _from_("field_list"),_to_("NAME","type","UNIQUE","field_list_tail"),
+  _from_("field_list_tail"),_to_("COMMA","NAME","type","field_list_tail"),
+  _from_("field_list_tail"),_to_("COMMA","NAME","type","UNIQUE","field_list_tail"),
+  _from_("field_list_tail"),_to_("COMMA","PRIMARY","KEY","LBRACKET","column_list","RBRACKET","field_list_tail"),
+  _from_("field_list_tail"),_to_("NONE"),
+  _from_("type"),_to_("INT"),
+  _from_("type"),_to_("CHAR","LBRACKET","NUMBER","RBRACKET"),
   _from_("column_list"),_to_("MULTIPLY_OP","NONE"),
   _from_("column_list"),_to_("column","column_list_tail"),
   _from_("column"),_to_("NAME", "DOT", "NAME"),
@@ -158,7 +176,9 @@ class Parser{
       // predict
       Stack<CommonSymbol>& predict = (*process)->predict;
       vector<DeducedSymbol>& analyzed =(*process)->analyzed;
+      if(predict.size()<=0)continue; // ERROR
       CommonSymbol next = predict.pop();
+      if(next <= 0 || next > kSymbolDict.size())return Status::Corruption("Encounter invalid symbol");
       // expand with rules
       vector<Stack<CommonSymbol>> rules = kRuleDict[next];
       // if terminal or none
@@ -167,7 +187,7 @@ class Parser{
         process ++;
       }
       // donnot match, delete
-      else if(rules.size() == 0 && next == kNoneCode){
+      else if(rules.size() == 0 && next == kSymbolDict["NONE"] ){
         (*process)->analyzed.push_back(DeducedSymbol(next, current.text));
         // stay here
       }
