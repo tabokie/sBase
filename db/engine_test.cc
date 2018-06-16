@@ -150,7 +150,7 @@ TEST(EngineTest, CreateNonPrimaryIndex){
 		ASSERT_TRUE(status.ok());
 	}
 
-	auto status = engine.MakeIndex("firstSchema", "Value");
+	auto status = engine.MakeIndex("firstSchema", "Value", "secondIndex");
 	if(!status.ok())std::cout << status.ToString() << std::endl;
 	EXPECT_TRUE(status.ok());
 
@@ -213,5 +213,41 @@ TEST(EngineTest, DeleteTest){
 		EXPECT_TRUE(engine.NextSlice(pSlice).ok());
 		EXPECT_TRUE(pSlice == nullptr);
 	}
+	EXPECT_TRUE(engine.DropDatabase().ok());
+}
+
+TEST(EngineTest, DropNonPrimaryIndex){
+	Engine engine;
+	ASSERT_TRUE(engine.CreateDatabase("root").ok());
+	std::vector<Attribute> attr{Attribute("Key", intT), Attribute("Value", fixchar32T)};
+	Schema tmp("firstSchema", attr.begin(), attr.end());
+	ASSERT_TRUE(engine.CreateTable(tmp).ok());
+	engine.Transaction();
+	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
+	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
+	auto slice = tmp.NewObject();
+	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	int size = 3500;
+
+	for(int i = 0; i < size; i++){
+		Value key(intT, new RealValue<int32_t>(i));
+		slice->SetValue(0, key );
+		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
+		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
+		auto status = engine.InsertSlice(slice);
+		if(!status.ok())std::cout << status.ToString() << std::endl;
+		ASSERT_TRUE(status.ok());
+	}
+
+	auto status = engine.MakeIndex("firstSchema", "Value", "secondIndex");
+	if(!status.ok())std::cout << status.ToString() << std::endl;
+	EXPECT_TRUE(status.ok());
+
+	status = engine.DropIndex("firstSchema", "secondIndex");
+	if(!status.ok())std::cout << status.ToString() << std::endl;
+	EXPECT_TRUE(status.ok());
+
 	EXPECT_TRUE(engine.DropDatabase().ok());
 }

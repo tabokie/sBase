@@ -128,6 +128,7 @@ class Engine: public NoCopy{
  	Status LoadTable(std::string name);
  	Status DropDatabase(void); // only current database
  	Status DropTable(std::string name);
+ 	Status DropIndex(std::string table, std::string name);
  	Status CloseDatabase(void);
  	Status CloseTable(std::string name);
  	Status MakeIndex(std::string table, std::string field, std::string name);

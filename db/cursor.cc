@@ -466,10 +466,12 @@ Status BPlusCursor::InsertOnSplit(Value* key, PageHandle& page ){
   // build new header struct, and prepare header to override
   BPlusHeader leftHeader;
   BPlusHeader* rightHeader = reinterpret_cast<BPlusHeader*>(newRef.ptr+sizeof(BlockHeader));
+  // std::cout << "before splitting index page: " << set_.hPage << "->" << set_.hRight << std::endl;
   leftHeader.nSize = set_.nSize/2+1; // left more
   rightHeader->nSize = set_.nSize - leftHeader.nSize;
   leftHeader.hRight = hNew;
   rightHeader->hRight = set_.hRight;
+  // std::cout << "after: " << leftHeader.hRight << "->" << hNew << "->" << rightHeader->hRight << std::endl;
   // Make rec
   auto slice = schema_->NewObject();
   slice->SetValue(0, *key);
@@ -644,6 +646,37 @@ Status BPlusCursor::Delete(Value* key){
   shift_left(end, endPtr, end-start);
   BPlusHeader* header = reinterpret_cast<BPlusHeader*>(ref.ptr + sizeof(BlockHeader));
   header->nSize -= size;
+  return Status::OK();
+}
+
+Status BPlusCursor::DeleteAllPage(void){
+  auto status = Rewind();
+  if(!status.ok())return status;
+  // descend to leaf
+  while(true){
+    status = Descend(nullptr);
+    if(status.IsIOError())break;
+    if(!status.ok())return status;
+  }
+  // delete level by level
+  PageRef* ref;
+  while(true){
+    // delete current level
+    while(true){
+      ref = new PageRef(page_, set_.hPage, kReadOnly);
+      if(!ref->ptr)break;
+      read_page(ref->ptr + sizeof(BlockHeader));
+      PageHandle right = set_.hRight;
+      delete ref;
+      status = page_->DeletePage(set_.hPage);
+      if(!status.ok())return status;
+      if(right == 0)break;
+      set_.hPage = right;
+    }
+    status = Ascend();
+    if(status.IsIOError())break; // at top
+  }
+
   return Status::OK();
 }
 

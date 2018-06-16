@@ -189,6 +189,7 @@ class BPlusCursor{
   Status Insert(Value* key, PageHandle handle);
   Status InsertOnSplit(Value* key, PageHandle& page );
   Status Delete(Value* key);
+  Status DeleteAllPage(void);
   void Plot(void);
 
 }; // class BPlusCursor

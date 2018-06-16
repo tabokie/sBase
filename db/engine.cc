@@ -89,7 +89,7 @@ Status Engine::CreateTable(Schema& schema){
 	Slice bflowTableRecord(&kTableIndexManifestSchema, \
 		{Value(tinyintT, new RealValue<int8_t>(kBFlowIndex)),\
 		Value(tinyintT, new RealValue<int8_t>(indexPrimary)),\
-		Value(fixchar32T, new RealValue<FixChar32>(schema.name)),\
+		Value(fixchar32T, schema.name()),\
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
 	PageHandle hBFlow = hPage;
 	pTableMeta->bflow_root = hPage;
@@ -103,7 +103,7 @@ Status Engine::CreateTable(Schema& schema){
 	Slice bplusTableRecord(&kTableIndexManifestSchema, \
 		{Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)),\
 		Value(tinyintT, new RealValue<int8_t>(indexPrimary)),\
-		Value(fixchar32T, new RealValue<FixChar32>(schema.GetAttribute(0).name())),\
+		Value(fixchar32T, schema.GetAttribute(0).name()),\
 		Value(uintT, new RealValue<uint32_t>(hPage))} );
 	pTableMeta->schema.SetIndex(indexPrimary, hPage);
 	PageRef bplusRootRef(&manager, hPage, kLazyModify);
@@ -204,7 +204,7 @@ Status Engine::LoadTable(std::string name){
 	cur = rootRef.ptr + tableRootHeader->oManifest1;
 	for(int i = 0; i < tableRootHeader->nManifest1; i++ , cur += indexSlice->length()){
 		indexSlice->Read(cur);
-		pMeta->schema.SetIndex( static_cast<size_t>((*indexSlice)[1].get<int8_t>()) , (*indexSlice)[3].get<uint32_t>(), std::string(*indexSlice[2].get<FixChar32>()));
+		pMeta->schema.SetIndex( static_cast<size_t>((*indexSlice)[1].get<int8_t>()) , (*indexSlice)[3].get<uint32_t>(), std::string((*indexSlice)[2].get<FixChar32>()));
 	}
 	return Status::OK();
 }
@@ -231,13 +231,35 @@ Status Engine::DropTable(std::string name){
 	database_.table_manifest.Get(name, pTable);
 	if(!pTable)return Status::InvalidArgument("Cannot find table meta data.");
 	pTable->loaded = false;
+	Status status;
+	for(int i = 0; i < pTable->schema.attributeCount(); i++){
+		PageHandle hIndex = pTable->schema.GetIndexHandle(i);
+		if(hIndex == 0)continue;
+		pTable->schema.SetIndex(i, 0); // delete index from mem first
+		// open cursor
+		cursor_.curIndex.Set(pTable->schema[i].type(), hIndex);
+		auto tmp = cursor_.curIndex.DeleteAllPage();
+		if(!tmp.ok())status = tmp;
+	}
+	if(!status.ok())return status;
 	FileHandle hFile = GetFileHandle(pTable->table_root);
-	auto status = manager.DeleteFile(hFile);
+	status = manager.DeleteFile(hFile);
 	if(!status.ok())return status;
 	database_.table_manifest.Delete(name);
 	return Status::OK();
 }
-Status Engine::DropIndex(void);
+Status Engine::DropIndex(std::string table, std::string name){ // index name not field name
+	auto pTable = GetTable(table);
+	if(!pTable)return Status::InvalidArgument("Cannot find table.");
+	int index = pTable->schema.GetIndexByName(name);
+	if(index < 0)return Status::InvalidArgument("Cannot find index on this table.");
+	if(index == 0)return Status::InvalidArgument("Cannot drop primary key index");
+	PageHandle hIndex = pTable->schema.GetIndexHandle(index);
+	pTable->schema.SetIndex(index, 0); // delete index from mem first
+	// open cursor
+	cursor_.curIndex.Set(pTable->schema[index].type(), hIndex);
+	return cursor_.curIndex.DeleteAllPage();
+}
 Status Engine::CloseDatabase(void){
 	Status status;
 	std::string table;

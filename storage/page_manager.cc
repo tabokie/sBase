@@ -175,15 +175,11 @@ Status PageManager::DeletePage(PageHandle hPage){
   // LOG_FUNC();
   Latch* pageLock = GetPageLatch(hPage);
   if(!pageLock)return Status::Corruption("lock invalid.");
-  std::cout << "acquire lock:" << std::endl;
   pageLock->WriteLock();
-  std::cout << "get lcok" << std::endl;
   // save change
-  std::cout << "Expire" << std::endl;
   auto ret = Expire(hPage, false);
   if(!ret.ok())return ret;
   // get wrapper
-  std::cout << "delete" << std::endl;
   FileWrapperPtr fw = GetFileWrapper(GetFileHandle(hPage));
   if(!fw)return Status::InvalidArgument("Unknown file.");
   if(!(fw->DeletePage(hPage))){

@@ -70,6 +70,13 @@ class Schema: public ClassDef{
 		}
 		return -1;
 	}
+	int GetIndexByName(std::string name){
+		if(index_name.size() <= 0)return -1;
+		for(int i = 0; i < index_name.size(); i++){
+			if(index_name[i] == name)return i;
+		}
+		return -1;
+	}
 	bool SetIndex(size_t idx, PageHandle hPage){
 		if(index.size() == 0){
 			index.resize(attributeCount());
