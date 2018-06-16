@@ -63,6 +63,13 @@ class Schema: public ClassDef{
 	Slice* NewSlice(void){
 		return new Object(this);
 	}
+	int GetRealIndex(size_t idx){
+		if(input_index.size() == 0)return -1;
+		for(int i = 0; i < input_index.size(); i++){
+			if(input_index[i] == idx)return i;
+		}
+		return -1;
+	}
 	bool SetIndex(size_t idx, PageHandle hPage){
 		if(index.size() == 0){
 			index.resize(attributeCount());

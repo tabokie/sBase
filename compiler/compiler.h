@@ -53,20 +53,25 @@ class Compiler{
 		std::string database;
 		std::vector<std::string> tables; // though only use one table here
 		Schema* schema;
-		std::vector<std::string> displayColumns;
+		std::vector<std::string> names; // build index
+		std::vector<std::string> columns; // display or build index
+		// used for insertion and query
+		std::vector<Slice*> slices;
 		// used for main query
 		Value* min;
 		Value* max;
 		std::string queryField;
-		// used for iteration
+		// used for iteration filter
 		std::vector<SliceFilterType> filters;
 		Resource():schema(nullptr),min(nullptr),max(nullptr){ }
 		void Clear(){
 			database = "";
 			tables.clear();
 			schema = nullptr;
-			displayColumns.clear();
+			columns.clear();
 			filters.clear();
+			names.clear();
+			slices.clear();
 		}
 	} resource_;
 	// optimize pass

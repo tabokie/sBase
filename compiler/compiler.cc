@@ -105,7 +105,7 @@ Status Compiler::CompileSelect(void){
     if(deduced->symbol == kSymbolDict["NAME"]){
       // std::cout << "Deducing column name: " << deduced->text << std::endl;
       if(selectAll)return Status::Corruption("Select colomn list conflicts with *.");
-      resource_.displayColumns.push_back(deduced->text);
+      resource_.columns.push_back(deduced->text);
     }
   }
   // find table
@@ -179,8 +179,9 @@ Status Compiler::CompileInsert(void){
   // check table
   if(resource_.tables.size() <= 0)return Status::Corruption("Can not resolve table to insert.");
   if(resource_.tables.size() > 1)return Status::Corruption("More than one table participated in insertion.");
-  // auto pSchema = engine->GetTableSchema();
-  // if(!pSchema)return Statu::Corruption("Can not find table.");
+  auto pSchema = engine->GetTableSchema();
+  if(!pSchema)return Statu::Corruption("Can not find table.");
+  resource_.schema = pSchema;
   // parse values
   for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["package_list"]); deduced++);
   if(deduced >= end)return Status::Corruption("Can not find symbol package_list");
@@ -192,6 +193,7 @@ Status Compiler::CompileInsert(void){
       for(deduced;deduced<end&&deduced->symbol!= kSymbolDict["value_list"];deduced++);
       if(deduced >= end)return Status::Corruption("Can not find symbol value_list");
       int idxField = 0;
+      Slice cur = pSchema->NewObject();
       for(deduced; deduced < end; deduced++){
         // parse factor
         if(deduced->symbol == kSymbolDict["NONE"])break;
@@ -203,8 +205,13 @@ Status Compiler::CompileInsert(void){
           if(!status.ok())return status;
           // std::cout << value << std::endl;
           // encode to slice here
+          int tmp = resource_.schema->GetRealIndex(idxField);
+          if(tmp < 0)return Status::InvalidArgument("Cannot find field");
+          cur->SetValue(tmp, value);
+          idxField ++;
         }
       }
+      resource_.slices.push_back(cur);
     }
   }
   return Status::OK();
