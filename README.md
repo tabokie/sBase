@@ -18,7 +18,7 @@ Further plan for this project is to optimize concurrent arch and decouples some 
 
 * `PageManager`: Buffer manager, also controller of concurrent request. Plain C++11 api like mutex and condition_variable are used to construct more complex locks, including write-lock, read-lock, weak-write-lock.
 
-  One more thing needed to mention is the encapsulation of page reference. In this project, I use RAII type object as entry to certain page.
+  One more thing needed to mention is the encapsulation of page reference. In this project, I use RAII style object as entry to certain page.
 
 * `Reflection Support`: To better styling the manipulation of runtime type, I implement weak reflection system, in which value are wrapped in uniform Value object.
 
