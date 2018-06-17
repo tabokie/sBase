@@ -1,79 +1,25 @@
 # sBase
 
+This is an implementation of relational database system. 
 
-## front end
+It mainly serves as a toy project to learn concurrency control. It also taps new structure of concurrent data structure. For now, it uses B-link structure as main storage engine. In the future, self-designed B-flow model can be implemented and tested.
 
-### sentence lexer
+Currently, it only has limited support for complete SQL syntax and incomplete consistence test.
 
-Syntax Rule /18-4-8
+Further plan for this project is to optimize concurrent arch and decouples some inelegant models.
 
-```
-select_clause = 'select' + column_list + 'from' + table_list + where_clause + ';' 
+### structure
 
-column_list = '*'
+* `Compiler`: Encapsulate a minimal virtual machine base on context-free grammar. The implementation explores some nice C++11 features to simplify the encoding.
 
-column_list = column + column_list_tail
+* `Engine`: Middleware between front-end and storage functionality. Provide intuitive interface for most simple operation.
 
-column = name + '.' + name
+* `Cursor`: Performer of concrete storage operations. In B-link case, there're BFlowCursor and BPlusCursor, which respectively serve to maintain records piece and index.
 
-column = name
+* `PageManager`: Buffer manager, also controller of concurrent request. Plain C++11 api like mutex and condition_variable are used to construct more complex locks, including write-lock, read-lock, weak-write-lock.
 
-column_list_tail = none
+  One more thing needed to mention is the encapsulation of page reference. In this project, I use RAII type object as entry to certain page.
 
-column_list_tail = column + column_list_tail
+* `Reflection Support`: To better styling the manipulation of runtime type, I implement weak reflection system, in which value are wrapped in uniform Value object.
 
-table_list = name + table_list_tail
-
-table_list_tail = none
-
-table_list_tail = ',' + name + table_list_tail
-
-where_clause = none
-
-where_clause = 'where' + condition_clause
-
-condition_clause = single_condition + condition_tail
-
-condition_tail = none
-
-condition_tail = logic_op + single_condition + condition_tail
-
-single_condition = unary_logic_op + single_condition
-
-single_condition = value_expr + bool_op + value_expr
-
-bool_op = 'like'
-
-bool_op = '<>=='.split()
-
-bool_op = in
-
-value_expr = term + term_tail
-
-value_expr = select_clause
-
-value_expr = name
-
-value_expr = '(' + value_expr + ')'
-
-term_op = '+-'
-
-term_tail = term_op + term + term_tail
-
-term = factor + factor_tail
-
-factor_binary_op = '\/'
-
-factor_tail = none
-
-factor_tail = factor_binary_op + factor + factor_tail
-
-factor_tail = "*" + factor + factor_tail // for multiply take different meaning
-
-factor = '(' + value_expr + ')'
-
-factor = column,number,string
-
-factor = unary_op + factor
-```
 
