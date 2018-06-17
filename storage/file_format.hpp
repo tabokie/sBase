@@ -26,7 +26,8 @@ enum PageType{
 	kDatabaseRoot = 1,
 	kTableRoot = 2,
 	kBFlowPage = 3,
-	kBPlusPage = 4
+	kBPlusPage = 4,
+	kDeleted = 5
 };
 
 enum IndexType{

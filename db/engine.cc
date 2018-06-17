@@ -73,8 +73,9 @@ Status Engine::CreateTable(Schema& schema){
 	int stripe = kTableSchemaManifestSchema.length();
 	for(int i = 0; i < fieldSize; i++, cur += stripe){
 		auto attr = schema.GetAttribute(i);
+		// std::cout << schema.GetUserIndex(i) << "," << attr.name() << "," << attr.type() << "," << schema.isUnique(i) << std::endl;
 		Slice fieldSlice(&kTableSchemaManifestSchema,\
-			{Value(tinyintT, new RealValue<int8_t>(i)),\
+			{Value(tinyintT, new RealValue<int8_t>(schema.GetUserIndex(i))),\
 			Value(fixchar32T, attr.name()),\
 			Value(tinyintT, new RealValue<int8_t>(attr.type())),\
 			Value(tinyintT, new RealValue<int8_t>(schema.isUnique(i)))}  );
@@ -139,7 +140,7 @@ Status Engine::CreateTable(Schema& schema){
 	}
 	fileMapRecord.Write(databaseRootRef.ptr + dbRootHeader->oManifest0 + dbRootHeader->nManifest0 * stripe);
 	// write table map to database root
-	tableMapRecord.Write(databaseRootRef.ptr + dbRootHeader->oManifest1 + dbRootHeader->nManifest1 * stripe);
+	tableMapRecord.Write(databaseRootRef.ptr + dbRootHeader->oManifest1 + dbRootHeader->nManifest1 * kDatabaseTableManifestSchema.length());
 	dbRootHeader->nManifest0++;
 	dbRootHeader->nManifest1++;
 	pTableMeta->loaded = true; // validate all the data
@@ -166,6 +167,7 @@ Status Engine::LoadDatabase(std::string path){
 		// encode table root page
 		tableSlice.Read(cur);
 		// std::cout << "get table map: " << static_cast<std::string>((*tableSlice)[0]) << " - " << (*tableSlice)[1].get<uint32_t>() << std::endl;
+		// std::cout << "encode table: " << static_cast<std::string>(tableSlice[0]) << "," << tableSlice[1].get<uint32_t>() << std::endl;
 		database_.table_manifest.Insert(static_cast<std::string>(tableSlice[0]), make_shared<TableMetaData>(static_cast<std::string>(tableSlice[0]), tableSlice[1].get<uint32_t>()));
 		LoadTable(static_cast<std::string>(tableSlice[0]));
 	}
@@ -194,7 +196,8 @@ Status Engine::LoadTable(std::string name){
 	for(int i = 0; i < tableRootHeader->nManifest0; i++, cur += fieldSlice.length()){
 		fieldSlice.Read(cur);
 		// index and unique
-		pMeta->schema.AppendField(\
+		// std::cout << fieldSlice[0].get<int8_t>() << ","<< static_cast<std::string>(fieldSlice[1].get<FixChar32>()) << "," << fieldSlice[2].get<int8_t>() << "," << fieldSlice[3].get<int8_t>() << std::endl;
+		pMeta->schema.AppendField(
 			Attribute( static_cast<std::string>(fieldSlice[1].get<FixChar32>()),\
 				static_cast<TypeT>(fieldSlice[2].get<int8_t>()) ), \
 			static_cast<int8_t>(fieldSlice[0].get<int8_t>()),\
@@ -253,6 +256,35 @@ Status Engine::DropTable(std::string name){
 	status = manager.DeleteFile(hFile);
 	if(!status.ok())return status;
 	database_.table_manifest.Delete(name);
+	database_.file_manifest.Delete(hFile);
+	// delete from database root file
+	PageRef databaseRootRef(&manager, GetPageHandle(database_.database_root, kDatabaseRootPageNum), kLazyModify);
+	ManifestBlockHeader* dbRootHeader = reinterpret_cast<ManifestBlockHeader*>(databaseRootRef.ptr);
+	if(dbRootHeader->hBlockCode != kDatabaseRoot)return Status::Corruption("Database root page corrupted.");
+	char* cur = databaseRootRef.ptr + dbRootHeader->oManifest0;
+	Slice fileSlice = kDatabaseFileManifestSchema.NewObject();
+	for(int i = 0; i < dbRootHeader->nManifest0; i++,cur += kDatabaseFileManifestSchema.length()){
+		// encode file manifest
+		fileSlice.Read(cur);
+		if(fileSlice[0].get<uint8_t>() == hFile){
+			for(int k = 0; k + i < dbRootHeader->nManifest0 -1; k++,cur+=kDatabaseFileManifestSchema.length() )
+				memcpy(cur, cur+kDatabaseFileManifestSchema.length(), kDatabaseFileManifestSchema.length());
+			dbRootHeader->nManifest0 --;
+			break;
+		}
+	}
+	cur = databaseRootRef.ptr + dbRootHeader->oManifest1;
+	Slice tableSlice = kDatabaseTableManifestSchema.NewObject();
+	for(int i = 0; i < dbRootHeader->nManifest1; i++, cur += kDatabaseTableManifestSchema.length()){
+		// encode table root page
+		tableSlice.Read(cur);
+		if(static_cast<std::string>(tableSlice[0]) == name){
+			for(int k = 0; k + i < dbRootHeader->nManifest1 -1; k++,cur+=kDatabaseTableManifestSchema.length() )
+				memcpy(cur, cur+kDatabaseTableManifestSchema.length(), kDatabaseTableManifestSchema.length());
+			dbRootHeader->nManifest1 --;
+			break;
+		}
+	}
 	return Status::OK();
 }
 Status Engine::DropIndex(std::string table, std::string name){ // index name not field name
@@ -301,6 +333,7 @@ Status Engine::MakeIndex(std::string table, std::string field, std::string name)
 	if(!pTable )return Status::InvalidArgument("Cannot find table.");
 	int idxIndex = pTable->schema.GetAttributeIndex(field);
 	if(idxIndex < 0)return Status::InvalidArgument("Cannot find field.");
+	if(!pTable->schema.isUnique(idxIndex))return Status::InvalidArgument("Cannot build index on non-unique key.");
 	PageHandle hIndex = pTable->schema.GetIndexHandle(idxIndex);
 	if(hIndex != 0)return Status::InvalidArgument("Already have index on this field.");
 

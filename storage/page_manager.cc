@@ -202,10 +202,10 @@ Status PageManager::SyncFromMem(PageHandle hPage, bool lock){
   // LOG_FUNC();
   PagePtr p = GetPage(hPage);
   if(!p)return Status::InvalidArgument("Page not found.");
-  // mem is newer // NOTICE
-  // return FlushFromPool(hPage, lock);
-  if(p->commited < p->modified)return FlushFromPool(hPage, lock);
-  return Status::OK();
+  // mem is newer // NOTICE // bad_practice
+  return FlushFromPool(hPage, lock);
+  // if(p->commited < p->modified)return FlushFromPool(hPage, lock);
+  // return Status::OK();
 }
 Status PageManager::DirectWrite(PageHandle hPage, char* data, bool lock){
   // LOG_FUNC();

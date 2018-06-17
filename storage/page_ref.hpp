@@ -57,9 +57,10 @@ struct PageRef: public NoCopy{
       }
       else if(rmode == kLazyModify){
         mode = kModifyByPool; 
+        auto page = manager->GetPage(handle);
+        page->Modify();
+        page->latch.WriteLock();
         // write lock
-        auto latch = manager->GetPageLatch(handle);
-        latch->WriteLock();
         ptr = manager->GetPageDataPtr(handle);
       }
       else if(rmode == kFatalModify){
@@ -74,9 +75,10 @@ struct PageRef: public NoCopy{
       }
       else if(rmode == kIncrementalModify){
         mode = kModifyByPoolNonFatal;
+        auto page = manager->GetPage(handle);
+        page->Modify();
+        page->latch.WeakWriteLock();
         // block other write
-        auto latch = manager->GetPageLatch(handle);
-        latch->WeakWriteLock();
         ptr = manager->GetPageDataPtr(handle);
       }
       else mode = kFailAccess;
@@ -85,14 +87,16 @@ struct PageRef: public NoCopy{
   }
   bool LiftToWrite(void){
     if(mode == kReadOnlyByPool){
-      auto latch = manager->GetPageLatch(handle);
-      latch->ReadLockLiftToWriteLock();
+      auto page = manager->GetPage(handle);
+      page->Modify();
+      page->latch.ReadLockLiftToWriteLock();
       mode = kModifyByPool;
       return true;
     }
     else if(mode == kModifyByPoolNonFatal){
-      auto latch = manager->GetPageLatch(handle);
-      latch->WeakWriteLockLiftToWriteLock();
+      auto page = manager->GetPage(handle);
+      page->Modify();
+      page->latch.WeakWriteLockLiftToWriteLock();
       mode = kModifyByPool;
       return true;
     }

@@ -11,13 +11,22 @@ bool sql_string_match(std::string a, std::string b){
   std::string token;
   size_t idx;
   size_t cur = 0;
+  size_t  curMax = 0;
   while(getline(tmp,token,'%')){
+    if(token.length()==0)continue;
+    if(cur >= a.length())return false;
     idx = a.find(token, cur);
     if(idx != std::string::npos && idx < a.length()){
-      cur = idx;
+      cur = idx + token.length();
+      while(idx != std::string::npos){
+        curMax = idx + token.length();
+        idx = a.find(token,curMax);
+      }
     }
     else return false;
   }
+  // cur not end
+  if(curMax < a.length() && b[b.length()-1] != '%')return false;
   return true;
 }
 bool SliceFilter_like(const Slice& slice, int index, std::string format, bool inverse){
@@ -108,6 +117,7 @@ Status Compiler::CompileSelect(void){
       resource_.displayColumns.push_back(deduced->text);
     }
   }
+
   // find table
   for(deduced; deduced < end&&(deduced->symbol!=kSymbolDict["table_list"]); deduced++);
   if(deduced >= end)return Status::Corruption("Can not find symbol table_list.");
@@ -125,6 +135,14 @@ Status Compiler::CompileSelect(void){
   auto pSchema = engine.GetSchema(resource_.database, resource_.tables[0]);
   if(!pSchema)return Status::Corruption("Can not find table.");
   resource_.schema = pSchema;
+
+  if(selectAll){
+    resource_.displayColumns.resize(pSchema->attributeCount());
+    for(int i = 0; i < pSchema->attributeCount(); i++){
+      resource_.displayColumns[pSchema->GetUserIndex(i)] = pSchema->GetAttribute(i).name();
+    }
+  }  
+
   // parse condition
   for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["where_clause"]); deduced++);
   if(deduced > end)return Status::OK(); // no other condition
@@ -163,7 +181,7 @@ Status Compiler::CompileDelete(void){
   if(!pSchema)return Status::Corruption("Can not find table.");
   resource_.schema = pSchema;
   // parse condition
-  for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["condition_clause"]); deduced++);
+  for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["where_clause"]); deduced++);
   if(deduced > end)return Status::OK(); // no other condition
   bytecodes_.push_back(kTransaction);
   bytecodes_.push_back(kOpenRecordCursor);
@@ -273,10 +291,10 @@ Status Compiler::CompileCreate(void){
             else if(bits <= 128)types.push_back(fixchar128T);
             else if(bits <= 256)types.push_back(fixchar256T);
             else return Status::InvalidArgument("Cannot have char type longer than 256.");
+            deduced++; // ERROR
           }
           else return Status::Corruption("Cannot resolve field type.");
-          deduced ++;
-          if(deduced<end && deduced->symbol == kSymbolDict["UNIQUE"])isUnique.push_back(true);
+          if(deduced+1<end && (deduced+1)->symbol == kSymbolDict["UNIQUE"])isUnique.push_back(true);
           else isUnique.push_back(false);
           break;
         }
@@ -294,6 +312,7 @@ Status Compiler::CompileCreate(void){
   }
   Schema schema(table); 
   int indexPrimary = -1;
+  // std::cout << primary << std::endl;
   for(int i = 0; i < fields.size(); i++){
     if(fields[i] == primary){
       if(!isUnique[i])return Status::InvalidArgument("Cannot build primary index on non-unique field.");

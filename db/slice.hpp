@@ -63,12 +63,15 @@ class Schema: public ClassDef{
 	Slice* NewSlice(void){
 		return new Object(this);
 	}
-	int GetRealIndex(size_t idx){
+	int GetRealIndex(size_t idx){ // user input order -> real order
 		if(input_index.size() == 0)return -1;
 		for(int i = 0; i < input_index.size(); i++){
 			if(input_index[i] == idx)return i;
 		}
 		return -1;
+	}
+	int GetUserIndex(size_t idx){
+		return input_index[idx];
 	}
 	int GetIndexByName(std::string name){
 		if(index_name.size() <= 0)return -1;
