@@ -132,11 +132,11 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
   int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBFlowHeaderLen;
   char* endPtr = basePtr + set_.nSize * stripe;
-  Slice* slice = schema_->NewObject();
+  Slice slice = schema_->NewObject();
   if(min == nullptr && max == nullptr){
     for(int i = 0; i < set_.nSize; i++){
-      slice->Read(basePtr + stripe * i);
-      ret.push_back((*slice));
+      slice.Read(basePtr + stripe * i);
+      ret.push_back(slice);
     }
     left = true;
     right = true;
@@ -154,8 +154,8 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
     char* curSlice = basePtr;
     if(upper>=endPtr)upper = endPtr-stripe;
     for(curSlice = basePtr; curSlice <= upper; curSlice += stripe ){
-      slice->Read(curSlice);
-      ret.push_back((*slice));
+      slice.Read(curSlice);
+      ret.push_back(slice);
     }
     if(upper >= endPtr)left = true;
     else left = false;
@@ -173,8 +173,8 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
     }
     char* curSlice = lower;
     for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
-      slice->Read(curSlice);
-      ret.push_back((*slice));
+      slice.Read(curSlice);
+      ret.push_back(slice);
     }
     if(lower <= basePtr)right = true;
     else right = false;
@@ -203,8 +203,8 @@ Status BFlowCursor::Get(Value* min, Value* max, bool& left, bool& right, SliceCo
       right = false;
       return Status::OK();
     }
-    slice->Read(curSlice);
-    ret.push_back((*slice));
+    slice.Read(curSlice);
+    ret.push_back(slice);
   }
   right = true;
   return Status::OK();
@@ -336,10 +336,10 @@ void BFlowCursor::Plot(void){
     auto slice = schema_->NewObject();
     char* cur = ref.ptr + sizeof(BlockHeader) + sizeof(BFlowHeader);
     int stripe = schema_->length();
-    slice->Read(cur);
-    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << " => ";
-    slice->Read(cur + stripe * (header->nSize-1));
-    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << std::endl;
+    slice.Read(cur);
+    std::cout << std::string(slice.GetValue(0)) << ", " << std::string(slice.GetValue(1)) << " => ";
+    slice.Read(cur + stripe * (header->nSize-1));
+    std::cout << std::string(slice.GetValue(0)) << ", " << std::string(slice.GetValue(1)) << std::endl;
     set_.hPage = header->hNext;
   }
   set_.hPage = backup;
@@ -357,8 +357,8 @@ Status BPlusCursor::Descend(Value* key){
 
   if(!key){ // descend at first branch
     auto slice = schema_->NewObject();
-    slice->Read(basePtr);
-    PageHandle hDown = ( slice->GetValue(1).get<uint32_t>());
+    slice.Read(basePtr);
+    PageHandle hDown = ( slice.GetValue(1).get<uint32_t>());
     if(hDown == 0)return Status::Corruption("Invalid descend handle.");
     if(page_->GetPageType(hDown) == kBFlowPage){
       // status = kAtBottom
@@ -376,8 +376,8 @@ Status BPlusCursor::Descend(Value* key){
 
     char* cur = basePtr;
     if(!match)return Status::Corruption("No branch to descend");
-    slice->Read(match);
-    PageHandle hDown = slice->GetValue(1).get<uint32_t>();
+    slice.Read(match);
+    PageHandle hDown = slice.GetValue(1).get<uint32_t>();
     if(hDown == 0)return Status::Corruption("Invalid descend handle.");
     if(page_->GetPageType(hDown) == kBFlowPage){
 
@@ -409,15 +409,15 @@ Status BPlusCursor::Insert(Value* key, PageHandle handle){
   char* endPtr = basePtr + set_.nSize * stripe;
   char* lower = lower_open_bound(basePtr, set_.nSize, key, stripe);
   auto slice = schema_->NewObject();
-  slice->SetValue(0, *key);
-  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(handle)));  
+  slice.SetValue(0, *key);
+  slice.SetValue(1, Value(uintT, new RealValue<uint32_t>(handle)));  
   if(!lower){
-    slice->Write(endPtr);
+    slice.Write(endPtr);
     header->nSize++;
     return Status::OK();
   }
   shift_right(lower, endPtr, stripe);
-  slice->Write(lower);
+  slice.Write(lower);
   header->nSize++;
   return Status::OK();
 }
@@ -437,12 +437,12 @@ Status BPlusCursor::MakeRoot(Value* key, PageHandle& page){
   rootHeader->hRight = 0;
   char* rootBase = rootRef.ptr + sizeof(BlockHeader) + sizeof(BPlusHeader);
   auto slice = schema_->NewObject();
-  slice->SetValue(0, Value(key->type(), Type::InfinityValue(key->type())));
-  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(root_)));  
-  slice->Write(rootBase);
-  slice->SetValue(0, *key);
-  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));
-  slice->Write(rootBase + schema_->length() );
+  slice.SetValue(0, Value(key->type(), Type::InfinityValue(key->type())));
+  slice.SetValue(1, Value(uintT, new RealValue<uint32_t>(root_)));  
+  slice.Write(rootBase);
+  slice.SetValue(0, *key);
+  slice.SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));
+  slice.Write(rootBase + schema_->length() );
   // all done
   root_ = hRoot;
   set_.nStackTop = 0;
@@ -474,8 +474,8 @@ Status BPlusCursor::InsertOnSplit(Value* key, PageHandle& page ){
   // std::cout << "after: " << leftHeader.hRight << "->" << hNew << "->" << rightHeader->hRight << std::endl;
   // Make rec
   auto slice = schema_->NewObject();
-  slice->SetValue(0, *key);
-  slice->SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));  
+  slice.SetValue(0, *key);
+  slice.SetValue(1, Value(uintT, new RealValue<uint32_t>(page)));  
   // copy tail to new page
   char* leftData = oldRef.ptr+sizeof(BlockHeader) + sizeof(BPlusHeader);
   char* rightData = newRef.ptr + sizeof(BlockHeader) +sizeof(BPlusHeader);
@@ -491,7 +491,7 @@ Status BPlusCursor::InsertOnSplit(Value* key, PageHandle& page ){
       cur = rightData + rightHeader->nSize * stripe;
     }
     else shift_right(cur, rightData + rightHeader->nSize * stripe, stripe);
-    slice->Write(cur);
+    slice.Write(cur);
     rightHeader->nSize ++;
     key->Read(rightData);
   }
@@ -504,12 +504,12 @@ Status BPlusCursor::InsertOnSplit(Value* key, PageHandle& page ){
       cur = leftData + leftHeader.nSize * stripe;
     }
     else shift_right(cur, leftData + leftHeader.nSize * stripe, stripe);
-    slice->Write(cur);
+    slice.Write(cur);
     leftHeader.nSize ++;
     key->Read(rightData);
   }
   memcpy(oldRef.ptr+sizeof(BlockHeader), reinterpret_cast<char*>(&leftHeader),sizeof(BPlusHeader) );
-  // page = slice->GetValue(1).get<uint32_t>(); // ERROR
+  // page = slice.GetValue(1).get<uint32_t>(); // ERROR
   page = hNew;
   return Status::OK();
 }
@@ -527,8 +527,8 @@ void BPlusCursor::Plot(void){
   char* cur = ref.ptr + sizeof(BlockHeader) +sizeof(BPlusHeader);
   int stripe = schema_->length();
   for(int i = 0;i < header->nSize; i++, cur+=stripe){
-    slice->Read(cur);
-    std::cout << std::string(slice->GetValue(0)) << ", " << std::string(slice->GetValue(1)) << std::endl;
+    slice.Read(cur);
+    std::cout << std::string(slice.GetValue(0)) << ", " << std::string(slice.GetValue(1)) << std::endl;
   }
   set_.hPage = backup;
   return ;
@@ -543,12 +543,12 @@ Status BPlusCursor::Get(Value* min, Value* max, bool& left, bool& right, std::de
   int stripe = schema_->length();
   char* basePtr = ref.ptr + sizeof(BlockHeader) + kBPlusHeaderLen;
   char* endPtr = basePtr + set_.nSize * stripe;
-  Slice* slice = schema_->NewObject();
+  Slice slice = schema_->NewObject();
   PageHandle handle;
   if(min == nullptr && max == nullptr){
     for(int i = 0; i < set_.nSize; i++){
-      slice->Read(basePtr + stripe * i);
-      handle = slice->GetValue(1).get<uint32_t>();
+      slice.Read(basePtr + stripe * i);
+      handle = slice.GetValue(1).get<uint32_t>();
       ret.push_back(handle);
     }
     left = true;
@@ -567,8 +567,8 @@ Status BPlusCursor::Get(Value* min, Value* max, bool& left, bool& right, std::de
     char* curSlice = basePtr;
     if(upper>=endPtr)upper = endPtr-stripe;
     for(curSlice = basePtr; curSlice <= upper; curSlice += stripe ){
-      slice->Read(curSlice);
-      handle = slice->GetValue(1).get<uint32_t>();
+      slice.Read(curSlice);
+      handle = slice.GetValue(1).get<uint32_t>();
       ret.push_back(handle);
     }
     if(upper >= endPtr)left = true;
@@ -587,8 +587,8 @@ Status BPlusCursor::Get(Value* min, Value* max, bool& left, bool& right, std::de
     }
     char* curSlice = lower;
     for(curSlice = lower; curSlice < endPtr; curSlice += stripe){
-      slice->Read(curSlice);
-      handle = slice->GetValue(1).get<uint32_t>();
+      slice.Read(curSlice);
+      handle = slice.GetValue(1).get<uint32_t>();
       ret.push_back(handle);
     }
     if(lower <= basePtr)right = true;
@@ -618,8 +618,8 @@ Status BPlusCursor::Get(Value* min, Value* max, bool& left, bool& right, std::de
       right = false;
       return Status::OK();
     }
-    slice->Read(curSlice);
-    handle = slice->GetValue(1).get<uint32_t>();
+    slice.Read(curSlice);
+    handle = slice.GetValue(1).get<uint32_t>();
     ret.push_back(handle);
   }
   right = true;

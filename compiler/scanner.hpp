@@ -21,10 +21,10 @@ static const AutoDict<std::string> kWordDict(
   "INSERT","INTO","VALUES",
   "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE",
   "DELETE", // ERROR
+  "DROP","INDEX","ON", // priority ERROR
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP",
   "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", 
-  "NAME",
-  "DROP","INDEX","ON"
+  "NAME"
   );
 static const char* kWordLex[kWordSize] = {
   "^[\r\t\n ]",  // none
@@ -35,31 +35,31 @@ static const char* kWordLex[kWordSize] = {
   "^[(]",
   "^[)]",
   "^[.]",
-  "^(select|SELECT)",
-  "^(from|FROM)",
-  "^(where|WHERE)",
-  "^(insert|INSERT)",
-  "^(into|INTO)",
-  "^(values|VALUES)",
-  "^(CREATE|create)",
-  "^(TABLE|table)",
-  "^(PRIMARY|primary)",
-  "^(KEY|key)",
-  "^(CHAR|char)",
-  "^(INT|int)",
-  "^(UNIQUE|unique)",
-  "^(DELETE|delete)",
-  "^(not|NOT)",
-  "^(and|AND|or|OR)",
+  "^(select|SELECT)[\r\t\n ]",
+  "^(from|FROM)[\r\t\n ]",
+  "^(where|WHERE)[\r\t\n ]",
+  "^(insert|INSERT)[\r\t\n ]",
+  "^(into|INTO)[\r\t\n ]",
+  "^(values|VALUES)[\r\t\n ]",
+  "^(CREATE|create)[\r\t\n ]",
+  "^(TABLE|table)[\r\t\n ]",
+  "^(PRIMARY|primary)[\r\t\n ]",
+  "^(KEY|key)[\r\t\n ]",
+  "^(CHAR|char)[\r\t\n ]",
+  "^(INT|int)[\r\t\n ]",
+  "^(UNIQUE|unique)[\r\t\n ]",
+  "^(DELETE|delete)[\r\t\n ]",
+  "^(DROP|drop)[\r\t\n ]",
+  "^(INDEX|index)[\r\t\n ]",
+  "^(ON|on)[\r\t\n ]",
+  "^(not|NOT)[\r\t\n ]",
+  "^(and|AND|or|OR)[\r\t\n ]",
   "^(<|<=|>|>=|=|!=|like|LIKE|in|IN)",
   "^[+-]",
   "^[*]",
   "^[/]",
   "^(sqrt)",
-  "^[a-zA-Z_][a-zA-Z0-9_]*",
-  "^(DROP|drop)",
-  "^(INDEX|index)",
-  "^(ON|on)"
+  "^[a-zA-Z_][a-zA-Z0-9_]*"
 };
 
 struct Token{

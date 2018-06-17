@@ -30,10 +30,10 @@ const AutoDict<std::string> kSymbolDict(
   "INSERT","INTO","VALUES", // 11-13
   "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE", // 14-20
   "DELETE",
+  "DROP","INDEX","ON",
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP", // 
   "TERM_OP","MULTIPLY_OP","FACTOR_BINARY_OP","FACTOR_UNARY_OP", // 
   "NAME", // 30
-  "DROP","INDEX","ON",
   // non-terminals
   "select_clause", "column_list", "table_list", "where_clause", // 28-31
   "insert_clause", "package_list","package_list_tail","package","value_list","value_list_tail", // 32-37
@@ -64,6 +64,8 @@ static LayeredDict<int, Stack<int>> kRuleDict(
   _from_("sql"),_to_("insert_clause","SEMICOLON"),
   _from_("sql"),_to_("create_clause","SEMICOLON"),
   _from_("sql"),_to_("delete_clause","SEMICOLON"),
+  _from_("sql"),_to_("drop_clause","SEMICOLON"),
+  _from_("sql"),_to_("create_index_clause","SEMICOLON"),
   _from_("select_clause"),_to_("SELECT", "column_list","FROM","table_list","where_clause"),
   _from_("insert_clause"),_to_("INSERT","INTO","table_list","package_list"),
   _from_("delete_clause"),_to_("DELETE","FROM","table_list","where_clause"),

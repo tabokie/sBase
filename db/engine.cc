@@ -153,22 +153,23 @@ Status Engine::LoadDatabase(std::string path){
 	ManifestBlockHeader* dbRootHeader = reinterpret_cast<ManifestBlockHeader*>(databaseRootRef.ptr);
 	if(dbRootHeader->hBlockCode != kDatabaseRoot)return Status::Corruption("Database root page corrupted.");
 	char* cur = databaseRootRef.ptr + dbRootHeader->oManifest0;
-	Slice* fileSlice = kDatabaseFileManifestSchema.NewObject();
+	Slice fileSlice = kDatabaseFileManifestSchema.NewObject();
 	for(int i = 0; i < dbRootHeader->nManifest0; i++,cur += kDatabaseFileManifestSchema.length()){
 		// encode file manifest
-		fileSlice->Read(cur);
+		fileSlice.Read(cur);
 		// std::cout << "get file map: " << static_cast<int>((*fileSlice)[0].get<int8_t>()) << " - " << static_cast<std::string>((*fileSlice)[1]) << std::endl;
-		database_.file_manifest.Insert(static_cast<FileHandle>((*fileSlice)[0].get<int8_t>()), static_cast<std::string>((*fileSlice)[1]) );
+		database_.file_manifest.Insert(static_cast<FileHandle>(fileSlice[0].get<int8_t>()), static_cast<std::string>(fileSlice[1]) );
 	}
 	cur = databaseRootRef.ptr + dbRootHeader->oManifest1;
-	Slice* tableSlice = kDatabaseTableManifestSchema.NewObject();
+	Slice tableSlice = kDatabaseTableManifestSchema.NewObject();
 	for(int i = 0; i < dbRootHeader->nManifest1; i++, cur += kDatabaseTableManifestSchema.length()){
 		// encode table root page
-		tableSlice->Read(cur);
+		tableSlice.Read(cur);
 		// std::cout << "get table map: " << static_cast<std::string>((*tableSlice)[0]) << " - " << (*tableSlice)[1].get<uint32_t>() << std::endl;
-		database_.table_manifest.Insert(static_cast<std::string>((*tableSlice)[0]), make_shared<TableMetaData>(static_cast<std::string>((*tableSlice)[0]), (*tableSlice)[1].get<uint32_t>()));
-		LoadTable(static_cast<std::string>((*tableSlice)[0]));
+		database_.table_manifest.Insert(static_cast<std::string>(tableSlice[0]), make_shared<TableMetaData>(static_cast<std::string>(tableSlice[0]), tableSlice[1].get<uint32_t>()));
+		LoadTable(static_cast<std::string>(tableSlice[0]));
 	}
+	database_.loaded = true;
 	return Status::OK();
 }
 Status Engine::LoadTable(std::string name){
@@ -189,23 +190,29 @@ Status Engine::LoadTable(std::string name){
 	if(tableRootHeader->hBlockCode != kTableRoot)return Status::Corruption("Table root page corrupted.");
 	// read schema map
 	char* cur = rootRef.ptr + tableRootHeader->oManifest0;
-	Slice* fieldSlice = kTableSchemaManifestSchema.NewObject();
-	for(int i = 0; i < tableRootHeader->nManifest0; i++, cur += fieldSlice->length()){
-		fieldSlice->Read(cur);
+	Slice fieldSlice = kTableSchemaManifestSchema.NewObject();
+	for(int i = 0; i < tableRootHeader->nManifest0; i++, cur += fieldSlice.length()){
+		fieldSlice.Read(cur);
 		// index and unique
 		pMeta->schema.AppendField(\
-			Attribute( static_cast<std::string>((*fieldSlice)[1].get<FixChar32>()),\
-				static_cast<TypeT>((*fieldSlice)[2].get<int8_t>()) ), \
-			static_cast<int8_t>((*fieldSlice)[0].get<int8_t>()),\
-			static_cast<bool>((*fieldSlice)[3].get<int8_t>()) );
+			Attribute( static_cast<std::string>(fieldSlice[1].get<FixChar32>()),\
+				static_cast<TypeT>(fieldSlice[2].get<int8_t>()) ), \
+			static_cast<int8_t>(fieldSlice[0].get<int8_t>()),\
+			static_cast<bool>(fieldSlice[3].get<int8_t>()) );
 	}
 	// read index map
-	Slice* indexSlice = kTableIndexManifestSchema.NewObject();
+	Slice indexSlice = kTableIndexManifestSchema.NewObject();
 	cur = rootRef.ptr + tableRootHeader->oManifest1;
-	for(int i = 0; i < tableRootHeader->nManifest1; i++ , cur += indexSlice->length()){
-		indexSlice->Read(cur);
-		pMeta->schema.SetIndex( static_cast<size_t>((*indexSlice)[1].get<int8_t>()) , (*indexSlice)[3].get<uint32_t>(), std::string((*indexSlice)[2].get<FixChar32>()));
+	pMeta->bflow_root = 0;
+	for(int i = 0; i < tableRootHeader->nManifest1; i++ , cur += indexSlice.length()){
+		indexSlice.Read(cur);
+		if(static_cast<int>(indexSlice[0].get<int8_t>()) == static_cast<int>(kBFlowIndex)){
+			pMeta->bflow_root = indexSlice[3].get<uint32_t>();
+		}
+		pMeta->schema.SetIndex( static_cast<size_t>(indexSlice[1].get<int8_t>()) , indexSlice[3].get<uint32_t>(), std::string(indexSlice[2].get<FixChar32>()));
 	}
+	pMeta->loaded = true;
+	if(pMeta->bflow_root == 0)return Status::Corruption("Cannot find primary index handle.");
 	return Status::OK();
 }
 Status Engine::DropDatabase(void){
@@ -319,7 +326,7 @@ Status Engine::MakeIndex(std::string table, std::string field, std::string name)
 	// insert all slice to index
 	cursor_.curMain.Set(&pTable->schema, pTable->bflow_root);
 	PrepareSequencePrimary(nullptr, nullptr);
-	SlicePtr mainSlice = nullptr;
+	SharedSlicePtr mainSlice = nullptr;
 	PageHandle mainHandle;
 	runtime_.keepReading = true;
 	while(true){

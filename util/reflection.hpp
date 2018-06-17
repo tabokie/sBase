@@ -558,7 +558,7 @@ class ClassDef{
 	AttributeIterator attributeEnd(void)const{return effective_attr_.end();}
 	std::string name(void)const{return name_;}
 	void setUnfix(void) const{definition_fix_ = true;}
-	Object* NewObject(void)const;
+	Object NewObject(void)const;
 
  protected:
  	void BaseInit(void){
@@ -605,7 +605,7 @@ class Object{
  		return (*this);
  	}
  	~Object(){ }
- 	Object* clone(void) const{return new Object(class_);};
+ 	Object clone(void) const{return Object(class_);};
  	ClassDef const* instanceOf(void) const{return class_;}
  	Value operator[](size_t idx) const{
 		

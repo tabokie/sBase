@@ -29,16 +29,16 @@ TEST(EngineTest, FirstInsertQuery){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	Value key = Value(intT, new RealValue<int32_t>(7));
 
 	EXPECT_TRUE(engine.PrepareMatch(&key).ok());
-	EXPECT_TRUE(engine.InsertSlice(slice).ok());
+	EXPECT_TRUE(engine.InsertSlice(&slice).ok());
 
 	EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 	std::vector<Slice> ret;
-	SlicePtr tmpSlice = nullptr;
+	SharedSlicePtr tmpSlice = nullptr;
 	EXPECT_TRUE(engine.NextSlice(tmpSlice).ok() );
 	ASSERT_TRUE(tmpSlice != nullptr);
 
@@ -56,23 +56,23 @@ TEST(EngineTest, InsertQueryPressureTest){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	int size = 35000;
 
 	for(int i = 0; i < size; i++){
 		Value key(intT, new RealValue<int32_t>(i));
-		slice->SetValue(0, key );
-		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		slice.SetValue(0, key );
+		slice.SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
 		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
-		auto status = engine.InsertSlice(slice);
+		auto status = engine.InsertSlice(&slice);
 		if(!status.ok())std::cout << status.ToString() << std::endl;
 		ASSERT_TRUE(status.ok());
 	}
 
 
-	SlicePtr pSlice;
+	SharedSlicePtr pSlice;
 
 	for(int i = size-1; i >= 0; i--){
 		Value key(intT, new RealValue<int32_t>(i));
@@ -93,23 +93,23 @@ TEST(EngineTest, SequenceQueryTest){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	int size = 3500;
 
 	for(int i = 0; i < size; i++){
 		Value key(intT, new RealValue<int32_t>(i));
-		slice->SetValue(0, key );
-		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		slice.SetValue(0, key );
+		slice.SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
 		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
-		auto status = engine.InsertSlice(slice);
+		auto status = engine.InsertSlice(&slice);
 		if(!status.ok())std::cout << status.ToString() << std::endl;
 		ASSERT_TRUE(status.ok());
 	}
 
 
-	SlicePtr pSlice;
+	SharedSlicePtr pSlice;
 	Value minKey(intT, new RealValue<int32_t>(0));
 	EXPECT_TRUE(engine.PrepareSequence(&minKey, nullptr).ok());
 	for(int i = 0; i < size; i++){
@@ -135,17 +135,17 @@ TEST(EngineTest, CreateNonPrimaryIndex){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	int size = 3500;
 
 	for(int i = 0; i < size; i++){
 		Value key(intT, new RealValue<int32_t>(i));
-		slice->SetValue(0, key );
-		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		slice.SetValue(0, key );
+		slice.SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
 		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
-		auto status = engine.InsertSlice(slice);
+		auto status = engine.InsertSlice(&slice);
 		if(!status.ok())std::cout << status.ToString() << std::endl;
 		ASSERT_TRUE(status.ok());
 	}
@@ -155,7 +155,7 @@ TEST(EngineTest, CreateNonPrimaryIndex){
 	EXPECT_TRUE(status.ok());
 
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Value").ok());
-	SlicePtr pSlice;
+	SharedSlicePtr pSlice;
 	int test = 374;
 	Value key(fixchar32T, std::string("values")+to_string(test));
 	status = engine.PrepareMatch(&key);
@@ -184,22 +184,22 @@ TEST(EngineTest, DeleteTest){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	int size = 35000;
 
 	for(int i = 0; i < size; i++){
 		Value key(intT, new RealValue<int32_t>(i));
-		slice->SetValue(0, key );
-		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		slice.SetValue(0, key );
+		slice.SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
 		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
-		auto status = engine.InsertSlice(slice);
+		auto status = engine.InsertSlice(&slice);
 		if(!status.ok())std::cout << status.ToString() << std::endl;
 		ASSERT_TRUE(status.ok());
 	}
 
-	SlicePtr pSlice;
+	SharedSlicePtr pSlice;
 
 	for(int i = size-1; i >= 0; i--){
 		Value key(intT, new RealValue<int32_t>(i));
@@ -226,17 +226,17 @@ TEST(EngineTest, DropNonPrimaryIndex){
 	EXPECT_TRUE(engine.OpenCursor("firstSchema").ok());
 	EXPECT_TRUE(engine.OpenCursor("firstSchema", "Key").ok());
 	auto slice = tmp.NewObject();
-	slice->SetValue(0, Value(intT, new RealValue<int32_t>(7)));
-	slice->SetValue(1, Value(fixchar32T, std::string("values")));
+	slice.SetValue(0, Value(intT, new RealValue<int32_t>(7)));
+	slice.SetValue(1, Value(fixchar32T, std::string("values")));
 	int size = 3500;
 
 	for(int i = 0; i < size; i++){
 		Value key(intT, new RealValue<int32_t>(i));
-		slice->SetValue(0, key );
-		slice->SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
+		slice.SetValue(0, key );
+		slice.SetValue(1, Value(fixchar32T, std::string("values")+to_string(i) ) );
 		EXPECT_TRUE(engine.PrepareMatch(&key).ok());
 		// EXPECT_TRUE(engine.InsertSlice(slice).ok());
-		auto status = engine.InsertSlice(slice);
+		auto status = engine.InsertSlice(&slice);
 		if(!status.ok())std::cout << status.ToString() << std::endl;
 		ASSERT_TRUE(status.ok());
 	}

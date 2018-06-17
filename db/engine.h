@@ -51,7 +51,7 @@ const ::std::vector<Attribute> kTableIndexManifestSchemaAttr{\
 const Schema kTableIndexManifestSchema("table_index",\
  kTableIndexManifestSchemaAttr.begin(), kTableIndexManifestSchemaAttr.end());
 
-using SlicePtr = shared_ptr<Slice>;
+using SharedSlicePtr = shared_ptr<Slice>;
 using ValuePtr = shared_ptr<Value>;
 
 class Engine: public NoCopy{
@@ -64,9 +64,8 @@ class Engine: public NoCopy{
 		bool loaded;
 		// depend on table root
 		Schema schema;
-		size_t nPrimaryIndex;
 		PageHandle bflow_root;
-		TableMetaData(std::string name, PageHandle hPage):table_root(hPage),loaded(false),schema(name){ }
+		TableMetaData(std::string name, PageHandle hPage):table_root(hPage),loaded(false),schema(name),bflow_root(0){ }
 	};
 	using TableMetaDataPtr = ::std::shared_ptr<TableMetaData>;
 	struct DatabaseMetaData{
@@ -101,6 +100,7 @@ class Engine: public NoCopy{
  public:
  	Engine():cursor_(&manager){ }
  	~Engine(){ }
+ 	bool CheckDatabase(void){return database_.loaded;}
  	// Meta Feedback //
  	// -1 for error, 0 for non, 1 for primary, 2 for non-p
  	int QueryIndex(std::string table, std::string field){
@@ -114,7 +114,7 @@ class Engine: public NoCopy{
  		else return 2; 
  	}
  	Schema* GetSchema(std::string table, std::string field){
- 		auto pTable = GetTable(table);
+ 		auto pTable = GetTable(field);
  		if(!pTable)return nullptr;
  		return &(pTable->schema);
  	}
@@ -180,7 +180,7 @@ class Engine: public NoCopy{
  		return PrepareSequenceNonPrimary(min, max, leftEqual, rightEqual);
  	}
  	// Query or Modify based on current handle
- 	Status NextSlice(SlicePtr& ret){
+ 	Status NextSlice(SharedSlicePtr& ret){
  		PageHandle tmp;
  		auto status = NextSlice(ret, tmp);
  		if(!status.ok())return status;
@@ -333,7 +333,7 @@ class Engine: public NoCopy{
  		return ReadCurrent();
  	}
  	// Get slice from pool
- 	Status NextSlice(SlicePtr& ret, PageHandle& hRet){
+ 	Status NextSlice(SharedSlicePtr& ret, PageHandle& hRet){
  		if(runtime_.slices.size() <= 0){
  			ret = nullptr;
  			hRet = 0;
@@ -428,20 +428,20 @@ class Engine: public NoCopy{
  		PageRef ref(&manager, cursor_.pTable->table_root, kLazyModify);
  		ManifestBlockHeader* tableRootHeader = reinterpret_cast<ManifestBlockHeader*>(ref.ptr);
  		if(tableRootHeader->hBlockCode!=kTableRoot)return Status::Corruption("Nil page.") ;
-		Slice* indexSlice = kTableIndexManifestSchema.NewObject();
+		Slice indexSlice = kTableIndexManifestSchema.NewObject();
  		char* half = ref.ptr + tableRootHeader->oManifest1;
- 		for(int i = 0; i < tableRootHeader->nManifest1; i++ , half += indexSlice->length()){
-			indexSlice->Read(half);
-			if(indexSlice->GetValue(1).get<int8_t>() == idx){
-				indexSlice->SetValue(2, Value(uintT, new RealValue<uint32_t>(hRoot)) );
-				indexSlice->Write(half);
+ 		for(int i = 0; i < tableRootHeader->nManifest1; i++ , half += indexSlice.length()){
+			indexSlice.Read(half);
+			if(indexSlice.GetValue(1).get<int8_t>() == idx){
+				indexSlice.SetValue(2, Value(uintT, new RealValue<uint32_t>(hRoot)) );
+				indexSlice.Write(half);
 				return Status::OK();
 			}
 		}
-		indexSlice->SetValue(0, Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)));
-		indexSlice->SetValue(1, Value(tinyintT, new RealValue<int8_t>(idx)));
-		indexSlice->SetValue(2, Value(uintT, new RealValue<uint32_t>(hRoot)));
-		indexSlice->Write(half);
+		indexSlice.SetValue(0, Value(tinyintT, new RealValue<int8_t>(kBPlusIndex)));
+		indexSlice.SetValue(1, Value(tinyintT, new RealValue<int8_t>(idx)));
+		indexSlice.SetValue(2, Value(uintT, new RealValue<uint32_t>(hRoot)));
+		indexSlice.Write(half);
 		tableRootHeader->nManifest1++;
 		return Status::OK();
  	}

@@ -20,24 +20,24 @@ bool sql_string_match(std::string a, std::string b){
   }
   return true;
 }
-bool SliceFilter_like(const Slice* slice, int index, std::string format, bool inverse){
-  auto value = slice->GetValue(index);
+bool SliceFilter_like(const Slice& slice, int index, std::string format, bool inverse){
+  auto value = slice.GetValue(index);
   if(value.type() < fixchar8T)return false;
   std::string strVal = std::string(value);
   return sql_string_match(strVal, format)^inverse;
 }
-bool SliceFilter_eq(const Slice* slice, int index, std::string rhs, bool inverse){
-  auto value = slice->GetValue(index);
+bool SliceFilter_eq(const Slice& slice, int index, std::string rhs, bool inverse){
+  auto value = slice.GetValue(index);
   Value rhsVal(value.type(), rhs);
   return (value==rhsVal)^inverse;
 }
-bool SliceFilter_gt(const Slice* slice, int index, std::string rhs, bool inverse){
-  auto value = slice->GetValue(index);
+bool SliceFilter_gt(const Slice& slice, int index, std::string rhs, bool inverse){
+  auto value = slice.GetValue(index);
   Value rhsVal(value.type(), rhs);
   return (value>rhsVal)^inverse;
 }
-bool SliceFilter_lt(const Slice* slice, int index, std::string rhs, bool inverse){
-  auto value = slice->GetValue(index);
+bool SliceFilter_lt(const Slice& slice, int index, std::string rhs, bool inverse){
+  auto value = slice.GetValue(index);
   Value rhsVal(value.type(), rhs);
   return (value<rhsVal)^inverse;
 }
@@ -52,6 +52,7 @@ void Compiler::RunInterface(std::istream& is, std::ostream& os, bool prompt){
     getline(is, buffer);
     if(buffer.find("\\q") < std::string::npos){
       os << "Bye";
+      Terminate();
       break;
     }
     if(buffer.find("execfile") < std::string::npos){
@@ -81,7 +82,7 @@ void Compiler::RunInterface(std::istream& is, std::ostream& os, bool prompt){
       auto status = Compile();
       if(!status.ok())os << status.ToString() << std::endl;
       else{
-        // os << RunByteCode().ToString() << std::endl;
+        os << RunInstructions(os).ToString() << std::endl;
       }
       ClearPreviousPass();
       continue;
@@ -98,14 +99,13 @@ Status Compiler::CompileSelect(void){
   // find column
   for(deduced; deduced < end && (deduced->symbol!=kSymbolDict["column_list"]); deduced++);
   if(deduced >= end)return Status::Corruption("Can not find symbol column_list");
-  bool selectAll = false;
+  bool selectAll = false; // ERROR
   for(deduced; deduced < end; deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["MULTIPLY_OP"])selectAll = true;
     if(deduced->symbol == kSymbolDict["NAME"]){
-      // std::cout << "Deducing column name: " << deduced->text << std::endl;
       if(selectAll)return Status::Corruption("Select colomn list conflicts with *.");
-      resource_.columns.push_back(deduced->text);
+      resource_.displayColumns.push_back(deduced->text);
     }
   }
   // find table
@@ -115,7 +115,6 @@ Status Compiler::CompileSelect(void){
   for(deduced;deduced<end;deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["NAME"]){
-      // std::cout << "Deducing table name: " << deduced->text << std::endl;
       resource_.tables.push_back(deduced->text);
     }
   }
@@ -123,12 +122,22 @@ Status Compiler::CompileSelect(void){
   // check table // now only support one table query
   if(resource_.tables.size() <= 0)return Status::Corruption("Can not resolve table to select.");
   if(resource_.tables.size() > 1)return Status::Corruption("More than one table participated in selection.");
-  // auto pSchema = engine->GetTableSchema();
-  // if(!pSchema)return Statu::Corruption("Can not find table.");
+  auto pSchema = engine.GetSchema(resource_.database, resource_.tables[0]);
+  if(!pSchema)return Status::Corruption("Can not find table.");
+  resource_.schema = pSchema;
   // parse condition
-  for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["condition_clause"]); deduced++);
+  for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["where_clause"]); deduced++);
   if(deduced > end)return Status::OK(); // no other condition
-  return ParseWhereClause(deduced);
+  bytecodes_.push_back(kTransaction);
+  bytecodes_.push_back(kOpenRecordCursor);
+  auto status = ParseWhereClause(deduced); // encode open index cursor and prepare
+  if(!status.ok())return status;
+  bytecodes_.push_back(kNextSlice);
+  bytecodes_.push_back(Instruction(kIfNil, 3));
+  bytecodes_.push_back(Instruction(kIfNot, -3));
+  bytecodes_.push_back(kPrintSlice);
+  bytecodes_.push_back(Instruction(kJump, -5));
+  return Status::OK();
 }
 Status Compiler::CompileDelete(void){
   auto deduced = parser_.SymbolBegin()+1;
@@ -143,7 +152,6 @@ Status Compiler::CompileDelete(void){
   for(deduced;deduced<end;deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["NAME"]){
-      // std::cout << "Deducing table name: " << deduced->text << std::endl;
       resource_.tables.push_back(deduced->text);
     }
   }
@@ -151,12 +159,22 @@ Status Compiler::CompileDelete(void){
   // check table // now only support one table query
   if(resource_.tables.size() <= 0)return Status::Corruption("Can not resolve table to select.");
   if(resource_.tables.size() > 1)return Status::Corruption("More than one table participated in selection.");
-  // auto pSchema = engine->GetTableSchema();
-  // if(!pSchema)return Statu::Corruption("Can not find table.");
+  auto pSchema = engine.GetSchema(resource_.database, resource_.tables[0]);
+  if(!pSchema)return Status::Corruption("Can not find table.");
+  resource_.schema = pSchema;
   // parse condition
   for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["condition_clause"]); deduced++);
   if(deduced > end)return Status::OK(); // no other condition
-  return ParseWhereClause(deduced);
+  bytecodes_.push_back(kTransaction);
+  bytecodes_.push_back(kOpenRecordCursor);
+  auto status = ParseWhereClause(deduced); // encode open index cursor and prepare
+  if(!status.ok())return status;
+  bytecodes_.push_back(kNextSlice);
+  bytecodes_.push_back(Instruction(kIfNil, 3));
+  bytecodes_.push_back(Instruction(kIfNot, -3));
+  bytecodes_.push_back(kDeleteSlice);
+  bytecodes_.push_back(Instruction(kJump, -5));
+  return Status::OK();
 }
 Status Compiler::CompileInsert(void){
   auto deduced = parser_.SymbolBegin()+1;
@@ -171,7 +189,6 @@ Status Compiler::CompileInsert(void){
   for(deduced;deduced<end;deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["NAME"]){
-      // std::cout << "Deducing table name: " << deduced->text << std::endl;
       resource_.tables.push_back(deduced->text);
     }
   }
@@ -179,8 +196,8 @@ Status Compiler::CompileInsert(void){
   // check table
   if(resource_.tables.size() <= 0)return Status::Corruption("Can not resolve table to insert.");
   if(resource_.tables.size() > 1)return Status::Corruption("More than one table participated in insertion.");
-  auto pSchema = engine->GetTableSchema();
-  if(!pSchema)return Statu::Corruption("Can not find table.");
+  auto pSchema = engine.GetSchema(resource_.database, resource_.tables[0]);
+  if(!pSchema)return Status::Corruption("Can not find table.");
   resource_.schema = pSchema;
   // parse values
   for(deduced;deduced < end &&(deduced->symbol!=kSymbolDict["package_list"]); deduced++);
@@ -188,7 +205,6 @@ Status Compiler::CompileInsert(void){
   for(deduced;deduced<end;deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["package"]){
-      // std::cout << "Deducing package: " << std::endl;
       // new slice, parse values
       for(deduced;deduced<end&&deduced->symbol!= kSymbolDict["value_list"];deduced++);
       if(deduced >= end)return Status::Corruption("Can not find symbol value_list");
@@ -198,21 +214,28 @@ Status Compiler::CompileInsert(void){
         // parse factor
         if(deduced->symbol == kSymbolDict["NONE"])break;
         if(deduced->symbol == kSymbolDict["value_expr"]){
-          // std::cout << "Deducing values: ";
           std::string value;
           bool isText = false;
           auto status = ParseSimpleExpr(deduced, value, isText);
           if(!status.ok())return status;
-          // std::cout << value << std::endl;
           // encode to slice here
           int tmp = resource_.schema->GetRealIndex(idxField);
           if(tmp < 0)return Status::InvalidArgument("Cannot find field");
-          cur->SetValue(tmp, value);
+          cur.SetValue(tmp, Value(cur.GetValue(tmp).type(), value));
           idxField ++;
         }
       }
       resource_.slices.push_back(cur);
     }
+  }
+  // bytecodes_.push_back(kLoadDatabase);
+  // bytecodes_.push_back(kLoadTable);
+  bytecodes_.push_back(kTransaction);
+  bytecodes_.push_back(kOpenRecordCursor);
+  bytecodes_.push_back( Instruction(kOpenIndexCursor, resource_.schema->GetAttribute(0).name()) );
+  for(int i = 0; i < resource_.slices.size(); i++){
+    bytecodes_.push_back( Instruction(kPrepareMatch, resource_.slices[i].GetValue(0)) );
+    bytecodes_.push_back( Instruction(kInsertSlice, i) );
   }
   return Status::OK();
 }
@@ -269,11 +292,24 @@ Status Compiler::CompileCreate(void){
       }
     }
   }
-  for(auto& k: fields){
-    // std::cout << k << std::endl;
+  Schema schema(table); 
+  int indexPrimary = -1;
+  for(int i = 0; i < fields.size(); i++){
+    if(fields[i] == primary){
+      if(!isUnique[i])return Status::InvalidArgument("Cannot build primary index on non-unique field.");
+      schema.AppendField(Attribute(fields[i], types[i]), i, isUnique[i]);
+      indexPrimary = i;
+    }
   }
-  if(primary.length() <= 0)return Status::InvalidArgument("No primary key detected.");
-  return Status::OK();
+  if(indexPrimary < 0)return Status::InvalidArgument("Cannot find primary key designation");
+  for(int i = 0; i < fields.size(); i++){
+    if(i == indexPrimary)continue;
+    schema.AppendField(Attribute(fields[i], types[i]), i, isUnique[i]);
+  }
+
+  // directly run // bad_practice()
+  // assuming database opened
+  return engine.CreateTable(schema);
 }
 // auxilary
 Status Compiler::ParseSimpleExpr(std::vector<DeducedSymbol>::iterator& begin, std::string& ret, bool& isText){
@@ -409,14 +445,25 @@ Status Compiler::ParseSimpleExpr(std::vector<DeducedSymbol>::iterator& begin, st
   ret = to_string(numeric);
   return Status::OK();
 }
+int RankOfAppliant(int competant, std::string op){
+  int ret = 0;
+  if(op == std::string("!=") || op == std::string("like") || op == std::string("LIKE"))return -1;
+  if(op == std::string("=") )ret += 100;
+  if(competant == 0)ret += 30;
+  return ret;
+}
 Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced){
   // simple implementation, no special for bracket and no OR
-  assert(deduced->symbol == kSymbolDict["condition_clause"]);
+  assert(deduced->symbol == kSymbolDict["where_clause"]);
   auto end = parser_.SymbolEnd();
+  std::shared_ptr<Value> min = nullptr;bool left;
+  std::shared_ptr<Value> match = nullptr;
+  std::shared_ptr<Value> max = nullptr;bool right;
+  int indexOfAppliant = -1;
+  int rank = 0;
   for(deduced;deduced<end;deduced++){
     if(deduced->symbol == kSymbolDict["NONE"])break;
     if(deduced->symbol == kSymbolDict["single_condition"]){
-      // std::cout << "Deducing single condition" << std::endl;
       bool inverse = false;
       int indexOfField = -1;
       std::string value;
@@ -428,30 +475,62 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
           inverse = !inverse;
         }
         if(deduced->symbol == kSymbolDict["value_expr"]){
-          // std::cout << "Deducing value expr" << std::endl;
           if(indexOfField < 0){ // parse table
             bool findColumn = false;
             for(deduced;deduced<end;deduced++){
               if(deduced->symbol == kSymbolDict["NONE"])break;
               if(deduced->symbol == kSymbolDict["column"])findColumn = true;
               if(deduced->symbol ==kSymbolDict["NAME"]){
-                if(findColumn)indexOfField = 1; // ERROR
+                if(findColumn){
+                  // assume schema is in position
+                  indexOfField = resource_.schema->GetAttributeIndex(deduced->text);
+                }
                 else return Status::Corruption("Not known name in sql.");
               }
             }
           }
           else{
-            // std::cout << "Deducing values: ";
             bool isText = false;
             auto status = ParseSimpleExpr(deduced, value, isText);
             if(!status.ok())return status;
-            // std::cout << value << std::endl;
             break;
           }
         }
         if(deduced->symbol == kSymbolDict["BOOL_OP"]){
           if(indexOfField < 0)return Status::Corruption("Not known bool operand");
           conditionDesciptor = deduced->text;
+        }
+      }
+      if(indexOfField < 0)return Status::InvalidArgument("Not known column in condition clause.");
+      if(resource_.schema->GetIndexHandle(indexOfField) != 0){
+        int newRank = RankOfAppliant(indexOfField, conditionDesciptor);
+        if(newRank > rank){
+          rank = newRank;
+          indexOfAppliant = indexOfField;
+          switch(_hash<std::string>{}(conditionDesciptor)){
+            // =
+            case 61:match = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);break;
+            // <=
+            case 7921:right = true;max = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);break;
+            // <
+            case 60:right = true;max = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);break;
+            // >=
+            case 8183:left = true;min = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);break;
+            // >
+            case 62:left = false;min = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);break;
+          }          
+        }
+        else if(newRank == rank && indexOfField == indexOfAppliant){
+          switch(_hash<std::string>{}(conditionDesciptor)){
+            // <=
+            case 7921:if(!max){right = true;max = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);}break;
+            // <
+            case 60:if(!max){right = false;max = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);}break;
+            // >=
+            case 8183:if(!min){left = true;min = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);}break;
+            // >
+            case 62:if(!min){left = false;min = std::make_shared<Value>(resource_.schema->GetAttribute(indexOfField).type(), value);}break;
+          }
         }
       }
       SliceFilterType filter;
@@ -485,9 +564,85 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
       }
     }
   }
+  if(indexOfAppliant < 0){
+    indexOfAppliant = 0;
+    assert(!min);
+    assert(!max);
+    assert(!match);
+  }
+  bytecodes_.push_back(Instruction(kOpenIndexCursor, resource_.schema->GetAttribute(indexOfAppliant).name() ));
+  if(match)bytecodes_.push_back(Instruction(kPrepareMatch, match ));
+  else bytecodes_.push_back(Instruction(kPrepareSequence, min, max, left, right));
+  // left delete for instruction
   return Status::OK();
 }
+Status Compiler::RunInstructions(ostream& os){
+  for(int pc = 0; pc < bytecodes_.size(); pc++){
+    Status status;
+    switch(bytecodes_[pc].code){
+      case kTransaction:
+      status = engine.Transaction();break;
+      case kOpenRecordCursor:
+      status = engine.OpenCursor(resource_.tables[0]);break;
+      case kOpenIndexCursor:
+      status = engine.OpenCursor(resource_.tables[0], bytecodes_[pc].str_holder);break;
+      case kInsertSlice:
+      status = engine.InsertSlice( &(resource_.slices[bytecodes_[pc].offset]) );break;
+      case kPrepareMatch:
+      status = engine.PrepareMatch( bytecodes_[pc].value_holder_1.get() );break;
+      case kPrepareSequence:
+      status = engine.PrepareSequence( bytecodes_[pc].value_holder_1.get(),\
+       bytecodes_[pc].value_holder_2.get(),\
+        bytecodes_[pc].left, bytecodes_[pc].right );break;
+      case kNextSlice:
+      status = engine.NextSlice(resource_.shared_slice);break;
+      case kIf:
+      status = Status::OK();
+      if(CheckSlice())pc += bytecodes_[pc].offset;break;
+      case kIfNot:
+      status = Status::OK();
+      if(!CheckSlice())pc += bytecodes_[pc].offset;break;
+      case kIfNil:
+      status = Status::OK();
+      if(!resource_.shared_slice)pc += bytecodes_[pc].offset;break;
+      case kJump:
+      status = Status::OK();
+      pc += bytecodes_[pc].offset;break;
+      case kDeleteSlice:
+      status = engine.DeleteSlice( &(*(resource_.shared_slice)) );break;
+      case kPrintSlice:
+      if(!resource_.shared_slice){status = Status::Corruption("Nil slice.");break;}
+      if(!resource_.headerDisplayed){
+        for(auto& col: resource_.displayColumns){
+          os << std::setw(kDisplayWidth) << col << " |";
+        }
+        os << std::endl;
+        resource_.headerDisplayed = true;
+      }
+      for(auto& col: resource_.displayColumns){
+        int idx = resource_.schema->GetAttributeIndex(col);
+        if(idx < -1){status = Status::Corruption("Cannot find corresponding field to display.");break;}
+        os << std::setw(kDisplayWidth) << std::string(resource_.shared_slice->GetValue(idx)) << " |";
+      }
+      os << std::endl;
+      break;
+      default: status = Status::InvalidArgument("Instruction not implemented.");break;
 
+    }
+    if(!status.ok()){
+      ErrorLog::Fatal(status.ToString().c_str());
+      return status;
+    }
+  }
+  return Status::OK();
+}
+bool Compiler::CheckSlice(void){
+  if(!resource_.shared_slice)return false;
+  for(auto& filter: resource_.filters){
+    if(!filter(*(resource_.shared_slice)))return false;
+  }
+  return true;
+}
 
 } // namespace sbase
 

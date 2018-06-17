@@ -34,6 +34,6 @@ size_t Type::prototype_length[unknownT] = {
 };
 
 // Afterward definition for ClassDef
-Object* ClassDef::NewObject(void)const{
-	return new Object(this);
+Object ClassDef::NewObject(void)const{
+	return Object(this);
 }

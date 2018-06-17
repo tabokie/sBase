@@ -42,14 +42,29 @@ class ErrorLog{
 		struct tm* timeInfo;
 		time(&rawTime);
 		timeInfo = localtime(&rawTime);
-		std::fstream f(ERROR_LOG_PATH, std::ios::out);
+		std::fstream f(ERROR_LOG_PATH, std::ios::out | std::ios::app);
 		if(f.bad())return ;
 		f << (timeInfo->tm_year + 1900) \
 		<< "-" << (timeInfo->tm_mon + 1) \
 		<< "-" << (timeInfo->tm_mday) \
 		<< " " << (timeInfo->tm_hour) \
 		<< ":" << (timeInfo->tm_min) \
-		<< "Fatal Message: " << message << std::endl;
+		<< " Fatal Message -- " << message << std::endl;
+		f.close();
+	}
+	static void Warning(const char* message){
+		time_t rawTime;
+		struct tm* timeInfo;
+		time(&rawTime);
+		timeInfo = localtime(&rawTime);
+		std::fstream f(ERROR_LOG_PATH, std::ios::out | std::ios::app);
+		if(f.bad())return ;
+		f << (timeInfo->tm_year + 1900) \
+		<< "-" << (timeInfo->tm_mon + 1) \
+		<< "-" << (timeInfo->tm_mday) \
+		<< " " << (timeInfo->tm_hour) \
+		<< ":" << (timeInfo->tm_min) \
+		<< " Warning Message -- " << message << std::endl;
 		f.close();
 	}
 };

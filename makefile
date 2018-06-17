@@ -15,8 +15,8 @@ REFLECTION = $(UTIL)reflection.cc
 COMMON_OPTION = -I$(GLOBAL) -std=c++11
 TEST_OPTION = -I$(GLOBAL) -lgtest -std=c++11
 
-compiler_test: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(COMPILER_SRC) $(REFLECTION)
-	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(COMPILER_SRC) $(REFLECTION) -o compiler_test
+compiler_test: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(COMPILER_SRC) $(REFLECTION) $(DB_HEADER) $(DB_SRC)
+	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(COMPILER_SRC) $(REFLECTION) $(DB_SRC) $(STORAGE_SRC) -o compiler_test
 
 
 
