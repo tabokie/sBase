@@ -128,6 +128,46 @@ class Engine: public NoCopy{
  	Status LoadTable(std::string name);
  	Status DropDatabase(void); // only current database
  	Status DropTable(std::string name);
+ 	Status DropIndex(std::string IndexName){
+ 		if(!database_.loaded)return Status::Corruption("Database not opened.");
+ 		database_.table_manifest.IterateClear();
+ 		std::string tmp;
+ 		int idx = -1;
+ 		TableMetaDataPtr pTable;
+ 		do{
+ 			tmp = database_.table_manifest.IterateKeyNext();
+ 			pTable = GetTable(tmp);
+ 			if(!pTable)continue;
+ 			if((idx = pTable->schema.GetIndexByName(IndexName)) >= 0)break;
+ 		}while(tmp.length() > 0);
+
+ 		if(idx < 0)return Status::InvalidArgument("Cannot find index.");
+		if(idx == 0)return Status::InvalidArgument("Cannot drop primary key index");
+		PageHandle hIndex = pTable->schema.GetIndexHandle(idx);
+		pTable->schema.SetIndex(idx, 0); // delete index from mem first
+		// write to file
+		PageRef tableRootRef(&manager, pTable->table_root, kLazyModify);
+		ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr);
+		// not safe
+		auto slice = kTableIndexManifestSchema.NewObject();
+		char* cur = tableRootRef.ptr + tableHeader->oManifest1 ;
+		int i;
+		for(i = 0; i < tableHeader->nManifest1; i++,cur+=slice.length()){
+			slice.Read(cur);
+			if(std::string(slice[2]) == IndexName){
+				for(int k = i; k < tableHeader->nManifest1-1; k++,cur+=slice.length()){
+					memcpy(cur, cur+slice.length(), slice.length());
+				}
+				break;
+			}
+		}
+		if(i >= tableHeader->nManifest1)return Status::Corruption("Cannot find index manifest in file.");
+		tableHeader->nManifest1 --;
+		// open cursor
+		// cursor_.curIndex.Set(pTable->Schema[idx].type(), hIndex);
+		return Status::OK();
+		// return cursor_.curIndex.DeleteAllPage();
+ 	}
  	Status DropIndex(std::string table, std::string name);
  	Status CloseDatabase(void);
  	Status CloseTable(std::string name);

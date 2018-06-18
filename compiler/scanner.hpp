@@ -13,13 +13,13 @@
 
 namespace sbase{
 
-const size_t kWordSize = 19+3+7+1+3;
+const size_t kWordSize = 19+3+7+1+4;
 static const AutoDict<std::string> kWordDict(
   "NUMBER","STRING",
   "SEMICOLON","COMMA","LBRACKET","RBRACKET","DOT",
   "SELECT","FROM", "WHERE", 
   "INSERT","INTO","VALUES",
-  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE",
+  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","FLOAT","UNIQUE",
   "DELETE", // ERROR
   "DROP","INDEX","ON", // priority ERROR
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP",
@@ -28,7 +28,7 @@ static const AutoDict<std::string> kWordDict(
   );
 static const char* kWordLex[kWordSize] = {
   "^[\r\t\n ]",  // none
-  "^([0-9]+|[0-9]+[.][0-9]*)",
+  "^([+-]*[0-9]+|[+-]*[0-9]+[.][0-9]*)",
   "^\'[^\']+\'",
   "^;",
   "^,",
@@ -47,6 +47,7 @@ static const char* kWordLex[kWordSize] = {
   "^(KEY|key)",
   "^(CHAR|char)",
   "^(INT|int)",
+  "^(FLOAT|float)",
   "^(UNIQUE|unique)",
   "^(DELETE|delete)",
   "^(DROP|drop)[\r\t\n ]",
@@ -54,7 +55,7 @@ static const char* kWordLex[kWordSize] = {
   "^(ON|on)[\r\t\n ]",
   "^(not|NOT)[\r\t\n ]",
   "^(and|AND|or|OR)[\r\t\n ]",
-  "^(<|<=|>|>=|=|!=|like|LIKE|in|IN)",
+  "^(<|<=|>|>=|=|!=|<>|like|LIKE|in|IN)",
   "^[+-]",
   "^[*]",
   "^[/]",

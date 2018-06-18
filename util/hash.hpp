@@ -68,14 +68,12 @@ class HashMap{
   ~HashMap(){ } // no delete ptr_object
   // special method
   void IterateClear(void){iterate_helper_ = 0;}
-  KeyType IterateKeyNext(void){
+  KeyType IterateKeyNext(void){ // ERROR
     if(iterate_helper_ >= size_)return KeyType();
-    size_t backup = iterate_helper_;
     do{
       if(table_[iterate_helper_] && !table_[iterate_helper_]->deleted)return (table_[iterate_helper_++])->key;
       iterate_helper_ ++;
-      if(iterate_helper_ >= size_)iterate_helper_ = 0; // loop
-    }while(iterate_helper_ != backup);
+    }while(iterate_helper_ < size_);
     return KeyType();
   }
   const int kHashMapSampleMax = 20;

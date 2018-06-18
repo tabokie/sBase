@@ -24,7 +24,7 @@ size_t Type::prototype_length[unknownT] = {
 	4, // new RealValue<int32_t>(0),
 	4,
 	8, // new RealValue<int64_t>(0),
-	4, // new RealValue<double>(0),
+	8, // new RealValue<double>(0),
 	8,
 	16, // new RealValue<FixChar>(FixChar(16)),
 	32, // new RealValue<FixChar>(FixChar(32)),

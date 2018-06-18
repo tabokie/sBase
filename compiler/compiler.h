@@ -158,7 +158,7 @@ class Compiler{
  		else if(deduced->using_rule == 4){
  			deduced += 3;
  			if(deduced >= parser_.SymbolEnd())return Status::Corruption("Cannot resolve drop clause.");
- 			if(deduced->symbol == kSymbolDict["INDEX"])return Status::OK();
+ 			if(deduced->symbol == kSymbolDict["INDEX"] && deduced+1<parser_.SymbolEnd())return engine.DropIndex((deduced+1)->text);
  			if(deduced->symbol == kSymbolDict["TABLE"] && deduced+1<parser_.SymbolEnd())return engine.DropTable((deduced+1)->text);
  			return Status::Corruption("Cannot resolve drop clause.");
  		}

@@ -62,7 +62,7 @@ Status Engine::CreateTable(Schema& schema){
 	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr);
 	tableHeader->hBlockCode = kTableRoot;
 	tableHeader->oManifest0 = sizeof(ManifestBlockHeader);
-	tableHeader->oManifest1 = kBlockLen >> 1;
+	tableHeader->oManifest1 = kBlockLen / 2;
 	tableHeader->nManifest0 = schema.attributeCount(); // schema part
 	tableHeader->nManifest1 = 2; // bflow and bplus
 
@@ -266,7 +266,7 @@ Status Engine::DropTable(std::string name){
 	for(int i = 0; i < dbRootHeader->nManifest0; i++,cur += kDatabaseFileManifestSchema.length()){
 		// encode file manifest
 		fileSlice.Read(cur);
-		if(fileSlice[0].get<uint8_t>() == hFile){
+		if(fileSlice[0].get<int8_t>() == hFile){
 			for(int k = 0; k + i < dbRootHeader->nManifest0 -1; k++,cur+=kDatabaseFileManifestSchema.length() )
 				memcpy(cur, cur+kDatabaseFileManifestSchema.length(), kDatabaseFileManifestSchema.length());
 			dbRootHeader->nManifest0 --;
@@ -349,10 +349,13 @@ Status Engine::MakeIndex(std::string table, std::string field, std::string name)
 		Value(uintT, new RealValue<uint32_t>(indexPage))	});
 	// write header
 	PageRef* indexRef = new PageRef(&manager, indexPage, kLazyModify);
-	BPlusHeader* indexHeader = reinterpret_cast<BPlusHeader*>(indexRef->ptr + sizeof(BlockHeader));
+	BPlusHeader* indexHeader = reinterpret_cast<BPlusHeader*>(indexRef->ptr); // ERROR
+	// BPlusHeader* indexHeader = reinterpret_cast<BPlusHeader*>(indexRef->ptr + sizeof(BlockHeader));
 	indexHeader->nSize = 0;
 	indexHeader->hRight = 0;
 	delete indexRef;
+	// Set cursor // ERROR
+	cursor_.pTable = pTable;
 	// Open cursor
 	TypeT indexType = pTable->schema.GetAttribute(idxIndex).type();
 	cursor_.curIndex.Set(indexType, indexPage);
@@ -377,7 +380,7 @@ Status Engine::MakeIndex(std::string table, std::string field, std::string name)
 	indexRecord.SetValue(3, Value(uintT, new RealValue<uint32_t>(indexPage)) );
 	// write to file
 	PageRef tableRootRef(&manager, pTable->table_root, kLazyModify);
-	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr + sizeof(BlockHeader));
+	ManifestBlockHeader* tableHeader = reinterpret_cast<ManifestBlockHeader*>(tableRootRef.ptr);
 	// not safe
 	char* cur = tableRootRef.ptr + tableHeader->oManifest1 + tableHeader->nManifest1 * kTableIndexManifestSchema.length();
 	if(cur >= tableRootRef.ptr + kBlockLen)return Status::Corruption("Not enough space in table manifest.");

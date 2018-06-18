@@ -28,7 +28,7 @@ const AutoDict<std::string> kSymbolDict(
   "SEMICOLON","COMMA","LBRACKET","RBRACKET","DOT", // 3,4,5,6,7
   "SELECT","FROM", "WHERE", // 8,9,10
   "INSERT","INTO","VALUES", // 11-13
-  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","UNIQUE", // 14-20
+  "CREATE","TABLE","PRIMARY","KEY","CHAR","INT","FLOAT","UNIQUE", // 14-20
   "DELETE",
   "DROP","INDEX","ON",
   "UNARY_LOGIC_OP","LOGIC_OP","BOOL_OP", // 
@@ -87,6 +87,7 @@ static LayeredDict<int, Stack<int>> kRuleDict(
   _from_("field_list_tail"),_to_("COMMA","PRIMARY","KEY","LBRACKET","column_list","RBRACKET","field_list_tail"),
   _from_("field_list_tail"),_to_("NONE"),
   _from_("type"),_to_("INT"),
+  _from_("type"),_to_("FLOAT"),
   _from_("type"),_to_("CHAR","LBRACKET","NUMBER","RBRACKET"),
   _from_("column_list"),_to_("MULTIPLY_OP","NONE"),
   _from_("column_list"),_to_("column","column_list_tail"),

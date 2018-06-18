@@ -12,10 +12,14 @@ bool sql_string_match(std::string a, std::string b){
   size_t idx;
   size_t cur = 0;
   size_t  curMax = 0;
+  bool matchHead = false;
+  if(b[0] != '%')matchHead =true;
   while(getline(tmp,token,'%')){
     if(token.length()==0)continue;
     if(cur >= a.length())return false;
     idx = a.find(token, cur);
+    if(idx > cur && matchHead)return false;
+    matchHead = false;
     if(idx != std::string::npos && idx < a.length()){
       cur = idx + token.length();
       while(idx != std::string::npos){
@@ -71,6 +75,7 @@ void Compiler::RunInterface(std::istream& is, std::ostream& os, bool prompt){
         os << "Cannot find file path terminator." << std::endl;
         continue;
       }
+      while(buffer[head] == ' ')head++;
       if(end-head <= 0)continue;
       std::fstream f(buffer.substr(head,end-head).c_str(), std::ios::in);
       if(!f.good()){
@@ -91,7 +96,8 @@ void Compiler::RunInterface(std::istream& is, std::ostream& os, bool prompt){
       auto status = Compile();
       if(!status.ok())os << status.ToString() << std::endl;
       else{
-        os << RunInstructions(os).ToString() << std::endl;
+        status = RunInstructions(os);
+        if(prompt || !status.ok())os << status.ToString() << std::endl;
       }
       ClearPreviousPass();
       continue;
@@ -252,7 +258,7 @@ Status Compiler::CompileInsert(void){
   bytecodes_.push_back(kOpenRecordCursor);
   bytecodes_.push_back( Instruction(kOpenIndexCursor, resource_.schema->GetAttribute(0).name()) );
   for(int i = 0; i < resource_.slices.size(); i++){
-    bytecodes_.push_back( Instruction(kPrepareMatch, resource_.slices[i].GetValue(0)) );
+    bytecodes_.push_back( Instruction(kPrepareMatch, make_shared<Value>(resource_.slices[i].GetValue(0)) ) );
     bytecodes_.push_back( Instruction(kInsertSlice, i) );
   }
   return Status::OK();
@@ -280,6 +286,7 @@ Status Compiler::CompileCreate(void){
           fields.push_back((deduced-1)->text );
           deduced ++;
           if(deduced->symbol == kSymbolDict["INT"])types.push_back(intT);
+          else if(deduced->symbol == kSymbolDict["FLOAT"])types.push_back(doubleT);
           else if(deduced->symbol == kSymbolDict["CHAR"]){
             deduced += 2;
             int bits = atoi(deduced->text.c_str());
@@ -321,6 +328,15 @@ Status Compiler::CompileCreate(void){
     }
   }
   if(indexPrimary < 0)return Status::InvalidArgument("Cannot find primary key designation");
+  // check name definition
+  std::vector<size_t> hash_check;
+  for(int i = 0; i < fields.size(); i++){
+    size_t hash = _hash<std::string>{}(fields[i]);
+    for(auto another: hash_check){
+      if(another == hash)return Status::InvalidArgument("Duplicate field definition.");
+    }
+    hash_check.push_back(hash);
+  }
   for(int i = 0; i < fields.size(); i++){
     if(i == indexPrimary)continue;
     schema.AppendField(Attribute(fields[i], types[i]), i, isUnique[i]);
@@ -555,7 +571,9 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
       SliceFilterType filter;
       switch(_hash<std::string>{}(conditionDesciptor)){
         // !=
-        case 4384:inverse = !inverse;
+        case 4384:
+        // <>
+        case 7922:inverse = !inverse;
         // =
         case 61:filter = std::bind(SliceFilter_eq,_1, indexOfField, value, inverse);break;
         // <=
@@ -579,7 +597,7 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
       if(deduced > end)return Status::Corruption("Can not resolve symbol condition_tail");
       if(deduced->symbol == kSymbolDict["NONE"])break;
       if(deduced->symbol == kSymbolDict["LOGIC_OP"]){
-        if(deduced->text != "AND" && deduced->text != "and")return Status::InvalidArgument("Logic op other than AND is not implemented.");
+        if(deduced->text.substr(0,3) != "AND" && deduced->text.substr(0,3) != "and")return Status::InvalidArgument("Logic op other than AND is not implemented.");
       }
     }
   }

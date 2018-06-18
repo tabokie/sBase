@@ -293,11 +293,13 @@ Status BFlowCursor::InsertOnSplit(Slice* slice, PageHandle& hRet){ // return new
   Value key = slice->GetValue(0);
   Value leftMax(key.type(), leftEnd - stripe );
   if(leftMax<=key){ // put to right   
-    char* cur = lower_open_bound(rightData, rightHeader->nSize, &key, stripe);
+    char* cur = lower_close_bound(rightData, rightHeader->nSize, &key, stripe);
     if(!cur){ // append to end
       cur = rightEnd;
     }
     else{
+      leftMax.Read(cur);
+      if(leftMax == key)return Status::InvalidArgument("Duplicate key.");
       shift_right(cur, rightEnd, stripe);
     }
     slice->Write(cur);
@@ -309,11 +311,13 @@ Status BFlowCursor::InsertOnSplit(Slice* slice, PageHandle& hRet){ // return new
       page_->DeletePage(hNew);
       return Status::Corruption("Error locking old page.");
     }
-    char* cur = lower_open_bound(leftData, leftHeader.nSize, &key, stripe);
+    char* cur = lower_close_bound(leftData, leftHeader.nSize, &key, stripe);
     if(!cur){
       cur = leftEnd;
     }
     else{
+      leftMax.Read(cur);
+      if(leftMax == key)return Status::InvalidArgument("Duplicate key.");
       shift_right(cur, leftEnd, stripe);
     }
     slice->Write(cur);
@@ -407,7 +411,7 @@ Status BPlusCursor::Insert(Value* key, PageHandle handle){
   BPlusHeader* header = reinterpret_cast<BPlusHeader*>(ref.ptr + sizeof(BlockHeader));
   char* basePtr = ref.ptr + sizeof(BlockHeader) + sizeof(BPlusHeader);
   char* endPtr = basePtr + set_.nSize * stripe;
-  char* lower = lower_open_bound(basePtr, set_.nSize, key, stripe);
+  char* lower = lower_close_bound(basePtr, set_.nSize, key, stripe);
   auto slice = schema_->NewObject();
   slice.SetValue(0, *key);
   slice.SetValue(1, Value(uintT, new RealValue<uint32_t>(handle)));  
@@ -416,6 +420,8 @@ Status BPlusCursor::Insert(Value* key, PageHandle handle){
     header->nSize++;
     return Status::OK();
   }
+  Value tmp(key->type(), lower);
+  if(tmp == *key)return Status::InvalidArgument("Duplicate key.");
   shift_right(lower, endPtr, stripe);
   slice.Write(lower);
   header->nSize++;

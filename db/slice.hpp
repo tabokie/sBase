@@ -101,6 +101,11 @@ class Schema: public ClassDef{
 		index_name[idx] = name;
 		return true;
 	}	
+	void SetUnique(size_t idx){
+		assert(unique.size() > idx);
+		unique[idx] = true;
+		return ;
+	}
 	// Get Attribute //
 	PageHandle GetIndexHandle(size_t idx){
 		if(index.size() == 0)return 0;

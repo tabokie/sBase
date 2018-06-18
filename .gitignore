@@ -16,3 +16,5 @@
 *.lastbuildstate
 *.suo
 *.log
+*.sql
+*.txt

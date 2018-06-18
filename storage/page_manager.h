@@ -104,6 +104,7 @@ struct FileWrapper: public NoCopy{
       assert(index < page_size && !pages[index]);
       // initial a new page
       pages[index] = std::make_shared<Page>(*file);
+      (pages[index])->handle = index+1; // ERROR
       // find new free
       if(free_size > 0)
         for(size_t i = free_index+1; i < page_size; i++){
