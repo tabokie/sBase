@@ -212,7 +212,8 @@ Status Engine::LoadTable(std::string name){
 		if(static_cast<int>(indexSlice[0].get<int8_t>()) == static_cast<int>(kBFlowIndex)){
 			pMeta->bflow_root = indexSlice[3].get<uint32_t>();
 		}
-		pMeta->schema.SetIndex( static_cast<size_t>(indexSlice[1].get<int8_t>()) , indexSlice[3].get<uint32_t>(), std::string(indexSlice[2].get<FixChar32>()));
+		// ERROR: set bflow index into schema
+		else pMeta->schema.SetIndex( static_cast<size_t>(indexSlice[1].get<int8_t>()) , indexSlice[3].get<uint32_t>(), std::string(indexSlice[2].get<FixChar32>()));
 	}
 	pMeta->loaded = true;
 	if(pMeta->bflow_root == 0)return Status::Corruption("Cannot find primary index handle.");

@@ -322,7 +322,8 @@ Status Compiler::CompileCreate(void){
   // std::cout << primary << std::endl;
   for(int i = 0; i < fields.size(); i++){
     if(fields[i] == primary){
-      if(!isUnique[i])return Status::InvalidArgument("Cannot build primary index on non-unique field.");
+      isUnique[i] = true; // auto set to unique
+      // if(!isUnique[i])return Status::InvalidArgument("Cannot build primary index on non-unique field.");
       schema.AppendField(Attribute(fields[i], types[i]), i, isUnique[i]);
       indexPrimary = i;
     }
@@ -614,6 +615,8 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
   return Status::OK();
 }
 Status Compiler::RunInstructions(ostream& os){
+  int selectSize = -1;
+  int deleteSize = -1;
   for(int pc = 0; pc < bytecodes_.size(); pc++){
     Status status;
     switch(bytecodes_[pc].code){
@@ -646,8 +649,12 @@ Status Compiler::RunInstructions(ostream& os){
       status = Status::OK();
       pc += bytecodes_[pc].offset;break;
       case kDeleteSlice:
-      status = engine.DeleteSlice( &(*(resource_.shared_slice)) );break;
+      if(deleteSize < 0)deleteSize = 0;
+      status = engine.DeleteSlice( &(*(resource_.shared_slice)) );
+      deleteSize++;
+      break;
       case kPrintSlice:
+      if(selectSize < 0)selectSize = 0;
       if(!resource_.shared_slice){status = Status::Corruption("Nil slice.");break;}
       if(!resource_.headerDisplayed){
         for(auto& col: resource_.displayColumns){
@@ -662,6 +669,7 @@ Status Compiler::RunInstructions(ostream& os){
         os << std::setw(kDisplayWidth) << std::string(resource_.shared_slice->GetValue(idx)) << " |";
       }
       os << std::endl;
+      selectSize ++;
       break;
       default: status = Status::InvalidArgument("Instruction not implemented.");break;
 
@@ -671,6 +679,11 @@ Status Compiler::RunInstructions(ostream& os){
       return status;
     }
   }
+  // bad_practice()
+  assert(deleteSize < 0 || selectSize < 0);
+  if(deleteSize >= 0)os << deleteSize << " entries deleted." << std::endl;
+  else if(selectSize > 0)os << selectSize << " entries in total." << std::endl;
+  else if(selectSize == 0)os << "Empty set." << std::endl;
   return Status::OK();
 }
 bool Compiler::CheckSlice(void){

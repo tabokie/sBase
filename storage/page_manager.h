@@ -211,7 +211,7 @@ class PageManager: public NoCopy{
   // for Construct //
   // find free slot or append new block on file
   Status NewPage(FileHandle hFile, PageType type, PageHandle& hPage);
-  Status DeletePage(PageHandle hFile);
+  Status DeletePage(PageHandle hPage);
   // To compatible with PageRef, all have lock control
   // Synchronic 
   // Function: Mem >= File

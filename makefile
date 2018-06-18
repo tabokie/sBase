@@ -15,10 +15,11 @@ REFLECTION = $(UTIL)reflection.cc
 COMMON_OPTION = -I$(GLOBAL) -std=c++11
 TEST_OPTION = -I$(GLOBAL) -lgtest -std=c++11
 
+sbase: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(COMPILER_SRC) $(REFLECTION) $(DB_HEADER) $(DB_SRC)
+	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(COMPILER_SRC) $(REFLECTION) $(DB_SRC) $(STORAGE_SRC) -o sbase
+
 compiler_test: $(COMPILER)compiler_test.cc $(COMPILER_HEADER) $(COMPILER_SRC) $(REFLECTION) $(DB_HEADER) $(DB_SRC)
 	g++ $(COMMON_OPTION) $(COMPILER)compiler_test.cc $(COMPILER_SRC) $(REFLECTION) $(DB_SRC) $(STORAGE_SRC) -o compiler_test
-
-
 
 interpreter_test: $(COMPILER)interpreter_test.cc $(COMPILER_HEADER)
 	g++ $(COMMON_OPTION) $(COMPILER)interpreter_test.cc -o interpreter_test

@@ -439,6 +439,7 @@ class Engine: public NoCopy{
  		for(int i = 0; i < slice->attributeCount(); i++){
  			PageHandle hIndex = cursor_.pTable->schema.GetIndexHandle(i);
  			if(hIndex == 0) continue; // no index on it
+ 			// std::cout << "Index page: " << hIndex << std::endl;
  			cursor_.curIndex.Set( cursor_.pTable->schema[idxIndex].type(), hIndex );
  			Value* key = new Value(slice->GetValue(i));
  			PageHandle tmp;
