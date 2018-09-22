@@ -1,14 +1,20 @@
 # sBase
 
-This is an implementation of relational database system. 
+sBase is an implementation of relational database system written in C++11. 
 
-It mainly serves as a toy project to learn concurrency control. It also taps new structure of concurrent data structure. For now, it uses B-link structure as main storage engine. In the future, self-designed B-flow model can be implemented and tested.
+## Features
 
-Currently, it only has limited support for complete SQL syntax and incomplete consistence test.
+* Multiple storage engine: B-link, Hash, LSTM, B-flow
 
-Further plan for this project is to optimize concurrent arch and decouples some inelegant models.
+* Basic SQL command support and simple SQL planner
 
-### structure
+* Concurrency control and simple transaction
+
+* Multi-threaded connect and network connect
+
+* Efficient SQL parser and generator with C++ template
+
+## Design
 
 * `Compiler`: Encapsulate a minimal virtual machine base on context-free grammar. The implementation explores some nice C++11 features to simplify the encoding.
 
@@ -20,6 +26,15 @@ Further plan for this project is to optimize concurrent arch and decouples some 
 
   One more thing needed to mention is the encapsulation of page reference. In this project, I use RAII style object as entry to certain page.
 
-* `Reflection Support`: To better styling the manipulation of runtime type, I implement weak reflection system, in which value are wrapped in uniform Value object.
+* `Reflection Support`: To better styling the manipulation of runtime type, I implement a reflection system, in which value are wrapped in uniform Value object.
 
+## Building
 
+* Originally built with g++. Makefile styled for microsoft nmake tool.
+* `nmake sbase` to compile under WIN environment with VS tool.
+
+## Performance
+
+### Single-threaded w/r
+
+![](report\naked.jpg)

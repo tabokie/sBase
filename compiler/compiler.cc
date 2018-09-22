@@ -55,6 +55,7 @@ bool SliceFilter_lt(const Slice& slice, int index, std::string rhs, bool inverse
   return (value<rhsVal)^inverse;
 }
 
+
 // Interface //
 void Compiler::RunInterface(std::istream& is, std::ostream& os, bool prompt){
   std::string buffer;
@@ -615,6 +616,7 @@ Status Compiler::ParseWhereClause(std::vector<DeducedSymbol>::iterator& deduced)
   return Status::OK();
 }
 Status Compiler::RunInstructions(ostream& os){
+  // int insertSize = -1;
   int selectSize = -1;
   int deleteSize = -1;
   for(int pc = 0; pc < bytecodes_.size(); pc++){
@@ -653,7 +655,7 @@ Status Compiler::RunInstructions(ostream& os){
       status = engine.DeleteSlice( &(*(resource_.shared_slice)) );
       deleteSize++;
       break;
-      case kPrintSlice:
+      case kPrintSlice:break;
       if(selectSize < 0)selectSize = 0;
       if(!resource_.shared_slice){status = Status::Corruption("Nil slice.");break;}
       if(!resource_.headerDisplayed){

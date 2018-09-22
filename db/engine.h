@@ -436,7 +436,8 @@ class Engine: public NoCopy{
  		Status status;
  		if(slice == nullptr || cursor_.pTable == nullptr)return Status::Corruption("Invalid slice or ptable.");
  		int idxIndex = cursor_.idxIndex;
- 		for(int i = 0; i < slice->attributeCount(); i++){
+ 		// ERROR, shouldnot delete from p-index
+ 		for(int i = 1; i < slice->attributeCount(); i++){
  			PageHandle hIndex = cursor_.pTable->schema.GetIndexHandle(i);
  			if(hIndex == 0) continue; // no index on it
  			// std::cout << "Index page: " << hIndex << std::endl;

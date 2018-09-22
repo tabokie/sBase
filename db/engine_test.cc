@@ -254,3 +254,4 @@ TEST(EngineTest, DropNonPrimaryIndex){
 
 	EXPECT_TRUE(engine.DropDatabase().ok());
 }
+

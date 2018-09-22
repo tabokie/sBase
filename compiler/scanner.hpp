@@ -55,7 +55,7 @@ static const char* kWordLex[kWordSize] = {
   "^(ON|on)[\r\t\n ]",
   "^(not|NOT)[\r\t\n ]",
   "^(and|AND|or|OR)[\r\t\n ]",
-  "^(<|<=|>|>=|=|!=|<>|like|LIKE|in|IN)",
+  "^(<>|<=|<|>=|>|=|!=|like|LIKE|in|IN)",
   "^[+-]",
   "^[*]",
   "^[/]",
