@@ -37,4 +37,4 @@ sBase is an implementation of relational database system written in C++11.
 
 ### Single-threaded w/r
 
-![](report\naked.jpg)
+![](report/naked.jpg)
