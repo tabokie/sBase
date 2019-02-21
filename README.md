@@ -24,11 +24,9 @@ sBase is an implementation of relational database system written in C++11.
 
 * `PageManager`: Buffer manager, also controller of concurrent request. Plain C++11 api like mutex and condition_variable are used to construct more complex locks, including write-lock, read-lock, weak-write-lock.
 
-  One more thing needed to mention is the encapsulation of page reference. In this project, I use RAII style object as entry to certain page.
-
 * `Reflection Support`: To better styling the manipulation of runtime type, I implement a reflection system, in which value are wrapped in uniform Value object.
 
-## Building
+## Build
 
 * Originally built with g++. Makefile styled for microsoft nmake tool.
 * `nmake sbase` to compile under WIN environment with VS tool.
